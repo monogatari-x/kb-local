@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# 项目数据
+data/
+*.db
+*.db-journal
+models_cache/
+logs/
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# 环境
+.env
+config/local.yaml
