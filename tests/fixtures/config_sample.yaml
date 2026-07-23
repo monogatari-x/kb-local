@@ -1,0 +1,39 @@
+server:
+  host: 127.0.0.1
+  port: 8000
+
+qdrant:
+  url: http://localhost:6333
+  collection: kb_chunks
+
+embedding:
+  model: BAAI/bge-m3
+  version: bge-m3-v1
+  device: auto
+  batch_size_cuda: 4
+  batch_size_cpu: 16
+  cache_enabled: true
+
+chunking:
+  code_max_tokens: 800
+  text_max_tokens: 512
+  text_overlap_tokens: 50
+  keep_code_block_intact: true
+
+watch_dirs:
+  - path: C:/Glow/projects
+    project_name: dev_projects
+    project_strategy: first_subdir
+    recursive: true
+    exclude_patterns: ["**/.git/**", "**/node_modules/**"]
+  - path: D:/Notes
+    project_name: notes
+    project_strategy: fixed
+    recursive: true
+
+scheduler:
+  full_scan_cron: "0 3 * * *"
+  incremental_on_start: true
+
+database:
+  sqlite_path: ~/.kb/kb_meta.db
