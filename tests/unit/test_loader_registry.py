@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from kb_core.loaders.base import BaseLoader, Block, LoadedDocument
 from kb_core.loaders.registry import LoaderRegistry
 
