@@ -16,3 +16,21 @@ def sqlite_db(tmp_path: Path) -> sqlite3.Connection:
         conn.commit()
     yield conn
     conn.close()
+
+
+@pytest.fixture(scope="module")
+def qdrant_store_module():
+    from testcontainers.qdrant import QdrantContainer
+
+    container = QdrantContainer("qdrant/qdrant:v1.10.1")
+    container.start()
+    try:
+        port = container.get_exposed_port(6333)
+        from kb_core.stores.qdrant_store import QdrantStore
+
+        store = QdrantStore(url=f"http://localhost:{port}", collection="kb_test_mvp")
+        store.ensure_collection()
+        yield store
+    finally:
+        container.stop()
+
