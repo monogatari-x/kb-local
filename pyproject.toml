@@ -21,6 +21,7 @@ dependencies = [
     "PyYAML>=6.0",
     "aiofiles>=23.2",
     "watchdog>=4.0",
+    "pypdf>=4.0",
 ]
 
 [dependency-groups]
@@ -31,6 +32,7 @@ dev = [
     "testcontainers[qdrant]>=4.7",
     "ruff>=0.5",
     "mypy>=1.10",
+    "fpdf2>=2.7",
 ]
 
 [tool.ruff]
