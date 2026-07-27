@@ -60,3 +60,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["kb_core", "kb_cli"]
+
+[project.scripts]
+kb = "kb_cli.main:app"
