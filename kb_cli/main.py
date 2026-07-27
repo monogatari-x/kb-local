@@ -12,7 +12,7 @@ console = Console()
 
 app.add_typer(watch.app, name="watch", help="管理监控目录")
 app.add_typer(jobs.app, name="jobs", help="索引任务管理")
-app.add_typer(search.app, name="search", help="检索知识库（直接传参模式）")
+app.command(name="search")(search.search)
 app.add_typer(status.app, name="status", help="查看系统状态")
 app.command(name="add")(add.add)
 
