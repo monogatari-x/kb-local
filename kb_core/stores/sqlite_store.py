@@ -13,11 +13,13 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 class SQLiteStore:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, check_same_thread: bool = False):
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            self.conn = sqlite3.connect(db_path, isolation_level=None)
+            self.conn = sqlite3.connect(
+                db_path, isolation_level=None, check_same_thread=check_same_thread
+            )
             self.conn.execute("PRAGMA foreign_keys = ON")
             self.conn.row_factory = sqlite3.Row
         except sqlite3.Error as e:
