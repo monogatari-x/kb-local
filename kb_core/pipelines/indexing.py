@@ -19,7 +19,8 @@ _EXT_TO_FILETYPE = {
     ".js": FileType.CODE, ".ts": FileType.CODE, ".go": FileType.CODE,
     ".md": FileType.MARKDOWN, ".markdown": FileType.MARKDOWN,
     ".txt": FileType.TEXT, ".log": FileType.TEXT,
-    ".pdf": FileType.TEXT,
+    ".pdf": FileType.TEXT, ".docx": FileType.TEXT,
+    ".xlsx": FileType.TEXT, ".xls": FileType.TEXT,
 }
 
 
