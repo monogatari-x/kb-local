@@ -41,6 +41,13 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "kb_core/embeddings/bge_m3.py" = ["N801"]
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "typer.Argument",
+    "typer.Option",
+    "typer.launch",
+]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
