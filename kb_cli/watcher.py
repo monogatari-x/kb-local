@@ -1,0 +1,94 @@
+"""文件监听:watchdog 触发 → 去抖 → pipeline.index_file。"""
+
+import json
+import threading
+import time
+from pathlib import Path
+
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers.api import BaseObserver
+
+from kb_core.enums import ProjectStrategy
+from kb_core.pipelines.indexing import IndexingPipeline
+from kb_core.stores.sqlite_store import SQLiteStore
+from kb_core.utils.paths import match_exclude
+
+
+class DebouncedIndexHandler(FileSystemEventHandler):
+    def __init__(
+        self,
+        pipeline: IndexingPipeline,
+        watch_dir: Path,
+        project_name: str,
+        project_strategy: str,
+        exclude_patterns: list[str],
+        debounce_seconds: float = 2.0,
+    ) -> None:
+        super().__init__()
+        self.pipeline = pipeline
+        self.watch_dir = watch_dir
+        self.project_name = project_name
+        self.project_strategy = project_strategy
+        self.exclude_patterns = exclude_patterns
+        self.debounce_seconds = debounce_seconds
+        self._last_indexed: dict[Path, float] = {}
+        self._lock = threading.Lock()
+        self.index_count = 0
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        if event.is_directory:
+            return
+        if event.event_type not in ("created", "modified", "moved"):
+            return
+        src_str = event.src_path if isinstance(event.src_path, str) else str(event.src_path)
+        src_path = Path(src_str)
+        try:
+            rel = src_path.relative_to(self.watch_dir)
+        except ValueError:
+            rel = src_path
+        if match_exclude(str(rel), self.exclude_patterns):
+            return
+        now = time.monotonic()
+        with self._lock:
+            last = self._last_indexed.get(src_path, 0.0)
+            if now - last < self.debounce_seconds:
+                return
+            self._last_indexed[src_path] = now
+        try:
+            self.pipeline.index_file(
+                src_path,
+                watch_dir=self.watch_dir,
+                project_strategy=ProjectStrategy(self.project_strategy),
+                project_name=self.project_name,
+            )
+            self.index_count += 1
+        except Exception:
+            pass
+
+
+def start_watcher(
+    store: SQLiteStore,
+    pipeline: IndexingPipeline,
+    debounce_seconds: float = 2.0,
+) -> BaseObserver:
+    from watchdog.observers import Observer
+
+    watch_dirs = store.list_watch_dirs()
+    observer = Observer()
+    for wd in watch_dirs:
+        path = Path(str(wd["path"])).expanduser()
+        if not path.exists():
+            continue
+        raw = wd.get("exclude_patterns") or "[]"
+        patterns: list[str] = raw if isinstance(raw, list) else json.loads(raw)
+        handler = DebouncedIndexHandler(
+            pipeline=pipeline,
+            watch_dir=path,
+            project_name=str(wd["project_name"]),
+            project_strategy=str(wd["project_strategy"]),
+            exclude_patterns=patterns,
+            debounce_seconds=debounce_seconds,
+        )
+        observer.schedule(handler, str(path), recursive=bool(wd["recursive"]))
+    observer.start()
+    return observer

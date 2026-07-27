@@ -36,8 +36,7 @@ def add(
     store = _get_store(settings)
     wid = store.add_watch_dir(path, project, strategy, recursive, list(exclude))
     console.print(
-        f"[green]已添加[/green] 监控目录 #{wid}: {path} "
-        f"(project={project}, strategy={strategy})"
+        f"[green]已添加[/green] 监控目录 #{wid}: {path} (project={project}, strategy={strategy})"
     )
     store.close()
 
@@ -78,4 +77,32 @@ def remove(
     store = _get_store(settings)
     store.remove_watch_dir(watch_id)
     console.print(f"[green]已移除[/green] #{watch_id}")
+    store.close()
+
+
+@app.command("start")
+def start(
+    config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH"),
+    debounce: float = typer.Option(2.0, "--debounce", help="去抖秒数"),
+) -> None:
+    """启动文件监听守护进程（前台运行，Ctrl+C 退出）。"""
+    from kb_cli.commands.jobs import _build_pipeline
+    from kb_cli.watcher import start_watcher
+
+    settings = _load_settings(config)
+    store = _get_store(settings)
+    dirs = store.list_watch_dirs()
+    if not dirs:
+        console.print("[yellow]没有配置监控目录。先用 kb watch add 添加。[/yellow]")
+        raise typer.Exit(code=1)
+    pipeline = _build_pipeline(store, settings)
+    observer = start_watcher(store, pipeline, debounce_seconds=debounce)
+    console.print(f"[green]监听中[/green] {len(dirs)} 个目录，Ctrl+C 退出")
+    try:
+        while observer.is_alive():
+            observer.join(1)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]停止监听[/yellow]")
+        observer.stop()
+    observer.join()
     store.close()
