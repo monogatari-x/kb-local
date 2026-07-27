@@ -1,0 +1,18 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    container_name: kb-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ./config/qdrant.yaml:/qdrant/config/config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  qdrant_data:

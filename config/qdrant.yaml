@@ -1,0 +1,10 @@
+service:
+  max_request_size_mb: 64
+
+storage:
+  performance_concurrency: 4
+  optimizers:
+    indexing_threshold: 20000
+    default_segment_number: 2
+
+telemetry_disabled: true
