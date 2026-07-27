@@ -68,6 +68,13 @@ def setup_index(qdrant_store_module, tmp_path_factory):
     indexing.index_file(
         src, watch_dir=tmp, project_strategy="first_subdir", project_name="test",
     )
-    return {"indexing": indexing, "retrieval": retrieval, "sqlite": sqlite_store}
+    return {
+        "indexing": indexing,
+        "retrieval": retrieval,
+        "sqlite": sqlite_store,
+        "store": sqlite_store,
+        "qdrant": qdrant_store_module,
+        "embedder": embedder,
+    }
 
 
