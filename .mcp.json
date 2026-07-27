@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kb-local": {
+      "command": "uv",
+      "args": ["run", "--directory", ".", "python", "-m", "kb_mcp"]
+    }
+  }
+}
