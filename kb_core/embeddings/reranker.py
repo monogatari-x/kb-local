@@ -1,7 +1,5 @@
 """bge-reranker-v2-m3 精排包装。"""
 
-from FlagEmbedding import FlagReranker
-
 
 class Reranker:
     def __init__(
@@ -9,6 +7,8 @@ class Reranker:
         model_name: str = "BAAI/bge-reranker-v2-m3",
         use_fp16: bool = False,
     ) -> None:
+        from FlagEmbedding import FlagReranker
+
         self.model_name = model_name
         self.model = FlagReranker(model_name, use_fp16=use_fp16)
 

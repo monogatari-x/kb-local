@@ -38,6 +38,38 @@ def test_blocks_have_line_numbers(php_fixture: Path):
         assert b.end_line >= b.start_line
 
 
+def test_load_python_captures_top_level_imports(py_fixture: Path):
+    doc = CodeLoader().load(py_fixture)
+    statements = [b for b in doc.blocks if b.kind == "code_statement"]
+    assert len(statements) >= 1
+    joined = "\n".join(b.text for b in statements)
+    assert "import os" in joined
+    assert "import sys" in joined
+
+
+def test_load_python_captures_top_level_assignment(py_fixture: Path):
+    doc = CodeLoader().load(py_fixture)
+    statements = [b for b in doc.blocks if b.kind == "code_statement"]
+    joined = "\n".join(b.text for b in statements)
+    assert "DEBUG = True" in joined
+    assert "TIMEOUT = 30" in joined
+
+
+def test_load_python_pure_config_file_not_empty(config_fixture: Path):
+    doc = CodeLoader().load(config_fixture)
+    assert len(doc.blocks) > 0
+    assert all(b.kind != "code_function" for b in doc.blocks)
+    assert all(b.kind != "code_class" for b in doc.blocks)
+
+
+def test_load_python_captures_if_main_block(py_fixture: Path):
+    doc = CodeLoader().load(py_fixture)
+    statements = [b for b in doc.blocks if b.kind == "code_statement"]
+    joined = "\n".join(b.text for b in statements)
+    assert 'if __name__ ==' in joined
+    assert "sys.exit(0)" in joined
+
+
 @pytest.fixture
 def php_fixture() -> Path:
     return Path(__file__).parent.parent / "fixtures" / "sample.php"
@@ -46,3 +78,8 @@ def php_fixture() -> Path:
 @pytest.fixture
 def py_fixture() -> Path:
     return Path(__file__).parent.parent / "fixtures" / "sample.py"
+
+
+@pytest.fixture
+def config_fixture() -> Path:
+    return Path(__file__).parent.parent / "fixtures" / "sample_config.py"

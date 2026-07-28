@@ -46,6 +46,7 @@ class WatchDirConfig(BaseModel):
     project_strategy: str = "fixed"
     recursive: bool = True
     file_types: list[str] = Field(default_factory=list)
+    include_patterns: list[str] = Field(default_factory=list)
     exclude_patterns: list[str] = Field(default_factory=list)
 
 

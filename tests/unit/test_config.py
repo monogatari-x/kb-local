@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from kb_core.config import Settings, load_settings
 
@@ -23,7 +24,7 @@ def test_defaults_when_minimal():
 
 
 def test_chunking_validation_rejects_negative_overlap():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Settings(chunking={"text_overlap_tokens": -5})
 
 

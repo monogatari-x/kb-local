@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -99,6 +100,16 @@ def test_watch_dir_crud(store: SQLiteStore):
     assert dirs[0]["path"] == "/x"
     store.remove_watch_dir(wid)
     assert store.list_watch_dirs() == []
+
+
+def test_watch_dir_persists_file_types(store: SQLiteStore):
+    wid = store.add_watch_dir(
+        "/y", "p2", "fixed", True, [], file_types=["md", "txt"]
+    )
+    dirs = store.list_watch_dirs()
+    assert len(dirs) == 1
+    assert json.loads(dirs[0]["file_types"]) == ["md", "txt"]
+    store.remove_watch_dir(wid)
 
 
 def test_jobs_lifecycle(store: SQLiteStore):

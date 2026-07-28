@@ -1,7 +1,5 @@
 from datetime import datetime
 
-import pytest
-
 from kb_core.enums import ChunkType, DocStatus, FileType, ProjectStrategy
 from kb_core.models import Chunk, Document, SearchResult
 

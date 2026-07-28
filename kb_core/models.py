@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, model_validator
 
 from kb_core.enums import ChunkType, DocStatus, FileType
 
-
 TRUNCATE_LEN = 500
 
 

@@ -71,18 +71,24 @@ class CodeLoader(BaseLoader):
             raise UnsupportedFileTypeError(f"Cannot load parser for {lang}: {e}") from e
         tree = parser.parse(text.encode("utf-8"))
         blocks: list[Block] = []
-        self._walk(tree.root_node, text, blocks)
+        self._walk(tree.root_node, text, blocks, top_level=True)
         return blocks
 
-    def _walk(self, node: Node, text: str, blocks: list[Block]) -> None:
+    def _walk(
+        self, node: Node, text: str, blocks: list[Block], top_level: bool
+    ) -> None:
         for child in node.children:
             if child.type in _FUNC_NODE_TYPES:
                 blocks.append(self._make_block(child, text, kind="code_function"))
             elif child.type in _CLASS_NODE_TYPES:
                 blocks.append(self._make_block(child, text, kind="code_class"))
-                self._walk(child, text, blocks)
+                self._walk(child, text, blocks, top_level=False)
+            elif top_level:
+                snippet = text.encode("utf-8")[child.start_byte:child.end_byte]
+                if snippet.strip():
+                    blocks.append(self._make_block(child, text, kind="code_statement"))
             else:
-                self._walk(child, text, blocks)
+                self._walk(child, text, blocks, top_level=False)
 
     def _make_block(self, node: Node, text: str, kind: str) -> Block:
         symbol = self._extract_symbol_name(node)

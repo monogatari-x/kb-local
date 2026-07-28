@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from pathlib import Path
 
 from kb_core.utils.hashing import content_hash, sha256_of_bytes, sha256_of_file

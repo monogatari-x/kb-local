@@ -12,7 +12,7 @@ from kb_core.config import Settings, WatchDirConfig, load_settings
 from kb_core.enums import ProjectStrategy
 from kb_core.pipelines.indexing import IndexingPipeline
 from kb_core.stores.sqlite_store import SQLiteStore
-from kb_core.utils.paths import match_exclude, rel_path
+from kb_core.utils.paths import match_exclude, match_include, rel_path
 
 app = typer.Typer()
 console = Console()
@@ -68,11 +68,17 @@ def _build_pipeline(store: SQLiteStore, settings: Settings) -> IndexingPipeline:
 def _watch_dir_from_row(row: dict[str, Any]) -> WatchDirConfig:
     raw = row.get("exclude_patterns") or "[]"
     patterns = raw if isinstance(raw, list) else json.loads(raw)
+    raw_ft = row.get("file_types") or "[]"
+    ftypes = raw_ft if isinstance(raw_ft, list) else json.loads(raw_ft)
+    raw_inc = row.get("include_patterns") or "[]"
+    includes = raw_inc if isinstance(raw_inc, list) else json.loads(raw_inc)
     return WatchDirConfig(
         path=row["path"],
         project_name=row["project_name"],
         project_strategy=row["project_strategy"],
         recursive=row["recursive"],
+        file_types=ftypes,
+        include_patterns=includes,
         exclude_patterns=patterns,
     )
 
@@ -99,10 +105,15 @@ def run(
         if not root.exists():
             continue
         strategy = ProjectStrategy(wd.project_strategy)
+        allowed_exts = {e.lower().lstrip(".") for e in wd.file_types}
         for current_root, _dirs, files in os.walk(root):
             for f in files:
                 full = Path(current_root) / f
+                if allowed_exts and full.suffix.lower().lstrip(".") not in allowed_exts:
+                    continue
                 rp = rel_path(full, root)
+                if not match_include(rp, wd.include_patterns):
+                    continue
                 if match_exclude(rp, wd.exclude_patterns):
                     continue
                 try:

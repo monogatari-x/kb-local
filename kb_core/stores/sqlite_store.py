@@ -27,8 +27,23 @@ class SQLiteStore:
 
     def init_schema(self) -> None:
         try:
+            self.conn.executescript(
+                "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                "  name TEXT PRIMARY KEY, applied_at TEXT NOT NULL"
+                ");"
+            )
+            applied = {
+                row["name"]
+                for row in self.conn.execute("SELECT name FROM schema_migrations").fetchall()
+            }
             for sql_file in sorted(MIGRATIONS_DIR.glob("*.sql")):
+                if sql_file.name in applied:
+                    continue
                 self.conn.executescript(sql_file.read_text(encoding="utf-8"))
+                self.conn.execute(
+                    "INSERT INTO schema_migrations(name, applied_at) VALUES (?, ?)",
+                    (sql_file.name, self._iso(datetime.now())),
+                )
         except sqlite3.Error as e:
             raise SQLiteError(f"Migration failed: {e}") from e
 
@@ -178,11 +193,15 @@ class SQLiteStore:
         strategy: str,
         recursive: bool,
         exclude_patterns: list[str],
+        file_types: list[str] | None = None,
+        include_patterns: list[str] | None = None,
     ) -> int:
         cur = self.conn.execute(
             """INSERT INTO watch_dirs(path, project_name, project_strategy, recursive,
-                   exclude_patterns, created_at) VALUES (?, ?, ?, ?, ?, ?)""",
+                   file_types, include_patterns, exclude_patterns, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (path, project_name, strategy, int(recursive),
+             json.dumps(file_types or []), json.dumps(include_patterns or []),
              json.dumps(exclude_patterns), self._iso(datetime.now())),
         )
         watch_id = cur.lastrowid

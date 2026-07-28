@@ -28,15 +28,29 @@ def add(
     project: str = typer.Option(..., "--project", help="项目名（逻辑分组）"),
     strategy: str = typer.Option("fixed", "--strategy", help="fixed | first_subdir"),
     recursive: bool = typer.Option(True, "--recursive/--no-recursive"),
+    file_type: list[str] = typer.Option(
+        [], "--file-type",
+        help="只索引这些扩展名（可多次，如 --file-type md）。留空表示不限制",
+    ),
+    include: list[str] = typer.Option(
+        [], "--include",
+        help="只索引匹配这些 glob 的相对路径(可多次,如 --include docs/* --include CLAUDE.md)",
+    ),
     exclude: list[str] = typer.Option([], "--exclude", help="排除模式（可多次）"),
     config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH", help="配置文件路径"),
 ) -> None:
     """添加一个监控目录"""
     settings = _load_settings(config)
     store = _get_store(settings)
-    wid = store.add_watch_dir(path, project, strategy, recursive, list(exclude))
+    wid = store.add_watch_dir(
+        path, project, strategy, recursive, list(exclude),
+        file_types=list(file_type),
+        include_patterns=list(include),
+    )
     console.print(
-        f"[green]已添加[/green] 监控目录 #{wid}: {path} (project={project}, strategy={strategy})"
+        f"[green]已添加[/green] 监控目录 #{wid}: {path} "
+        f"(project={project}, strategy={strategy}, file_types={list(file_type) or 'all'}, "
+        f"include={list(include) or 'all'})"
     )
     store.close()
 
@@ -53,7 +67,7 @@ def list_dirs(
         console.print("[yellow]暂无监控目录[/yellow]")
         store.close()
         return
-    table = Table("ID", "路径", "项目", "策略", "递归", "排除")
+    table = Table("ID", "路径", "项目", "策略", "递归", "类型", "包含", "排除")
     for d in dirs:
         table.add_row(
             str(d["id"]),
@@ -61,6 +75,8 @@ def list_dirs(
             d["project_name"],
             d["project_strategy"],
             "是" if d["recursive"] else "否",
+            d["file_types"] or "[]",
+            d["include_patterns"] or "[]",
             d["exclude_patterns"] or "[]",
         )
     console.print(table)

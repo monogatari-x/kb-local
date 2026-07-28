@@ -18,6 +18,8 @@ def _make_handler(**overrides):
         "project_name": "test",
         "project_strategy": "fixed",
         "exclude_patterns": [],
+        "file_types": [],
+        "include_patterns": [],
         "debounce_seconds": 2.0,
     }
     defaults.update(overrides)
@@ -41,6 +43,42 @@ def test_handler_skips_excluded():
     h = _make_handler(exclude_patterns=["*.log"])
     h.on_any_event(FileCreatedEvent("/tmp/foo.log"))
     h.pipeline.index_file.assert_not_called()
+
+
+def test_handler_respects_file_types_allowlist():
+    h = _make_handler(file_types=["md"])
+    h.on_any_event(FileCreatedEvent("/tmp/foo.php"))
+    h.pipeline.index_file.assert_not_called()
+
+
+def test_handler_file_types_allows_listed_extension():
+    h = _make_handler(file_types=["md"])
+    h.on_any_event(FileCreatedEvent("/tmp/notes.md"))
+    h.pipeline.index_file.assert_called_once()
+
+
+def test_handler_empty_file_types_allows_all():
+    h = _make_handler(file_types=[])
+    h.on_any_event(FileCreatedEvent("/tmp/anything.php"))
+    h.pipeline.index_file.assert_called_once()
+
+
+def test_handler_respects_include_patterns():
+    h = _make_handler(include_patterns=["docs/*", "CLAUDE.md"])
+    h.on_any_event(FileCreatedEvent("/tmp/src/foo.md"))
+    h.pipeline.index_file.assert_not_called()
+
+
+def test_handler_include_patterns_allows_matching_path():
+    h = _make_handler(include_patterns=["docs/*", "CLAUDE.md"])
+    h.on_any_event(FileCreatedEvent("/tmp/docs/arch.md"))
+    h.pipeline.index_file.assert_called_once()
+
+
+def test_handler_include_patterns_allows_named_root_file():
+    h = _make_handler(include_patterns=["docs/*", "CLAUDE.md"])
+    h.on_any_event(FileCreatedEvent("/tmp/CLAUDE.md"))
+    h.pipeline.index_file.assert_called_once()
 
 
 def test_handler_ignores_directory_events():

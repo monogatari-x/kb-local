@@ -20,6 +20,7 @@ class CodeChunker(BaseChunker):
         for block in loaded.blocks:
             chunk_type = (ChunkType.CODE_FUNCTION if block.kind == "code_function"
                           else ChunkType.CODE_CLASS if block.kind == "code_class"
+                          else ChunkType.CODE_STATEMENT if block.kind == "code_statement"
                           else None)
             if chunk_type is None:
                 continue
