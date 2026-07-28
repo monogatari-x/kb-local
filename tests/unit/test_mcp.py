@@ -46,3 +46,12 @@ def test_kb_status_tool_returns_counts(monkeypatch):
     out = server_mod.kb_status()
     assert "42" in out
     assert "500" in out
+
+
+def test_get_retrieval_returns_cached_value_without_nameerror(monkeypatch):
+    from kb_mcp import server as server_mod
+
+    fake = MagicMock(name="fake_retrieval")
+    monkeypatch.setitem(server_mod._state, "retrieval", fake)
+    result = server_mod._get_retrieval()
+    assert result is fake

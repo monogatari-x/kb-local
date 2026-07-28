@@ -59,6 +59,8 @@ def _build_retrieval() -> RetrievalPipeline:
 def _get_retrieval() -> RetrievalPipeline:
     if "retrieval" not in _state:
         _build_retrieval()
+    from kb_core.pipelines.retrieval import RetrievalPipeline
+
     return cast(RetrievalPipeline, _state["retrieval"])
 
 
