@@ -28,9 +28,9 @@ def show(
     settings = _load_settings(config)
     store = _get_store(settings)
 
-    docs = store.conn.execute(
-        "SELECT COUNT(*) FROM documents WHERE status = 'active'"
-    ).fetchone()[0]
+    docs = store.conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[
+        0
+    ]
     chunks = store.conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
     watch_dirs = store.conn.execute("SELECT COUNT(*) FROM watch_dirs").fetchone()[0]
     jobs = store.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]

@@ -40,9 +40,7 @@ def add(
     pipeline = _build_pipeline(store, settings)
     watch_dir = path.parent
     try:
-        doc_id = pipeline.index_file(
-            path, watch_dir, ProjectStrategy(strategy), project
-        )
+        doc_id = pipeline.index_file(path, watch_dir, ProjectStrategy(strategy), project)
         console.print(f"[green]已索引[/green] {path} (doc_id={doc_id[:8]})")
     except Exception as e:
         console.print(f"[red]失败[/red] {path}: {e}")

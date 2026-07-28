@@ -122,9 +122,7 @@ def run(
         processed_files=processed,
         failed_files=failed,
     )
-    console.print(
-        f"[green]完成[/green] 成功 {processed}，失败 {failed}（job_id={job_id[:8]}）"
-    )
+    console.print(f"[green]完成[/green] 成功 {processed}，失败 {failed}（job_id={job_id[:8]}）")
     store.close()
 
 
@@ -148,7 +146,7 @@ def list_jobs(
             j["type"],
             j["status"],
             j["started_at"],
-            f'{j.get("processed_files", 0)}/{j.get("failed_files", 0)}',
+            f"{j.get('processed_files', 0)}/{j.get('failed_files', 0)}",
         )
     console.print(table)
     store.close()
