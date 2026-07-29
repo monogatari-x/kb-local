@@ -1,3 +1,8 @@
+import os
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 import typer
 from rich.console import Console
 
@@ -29,10 +34,6 @@ def main(
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
         console.print(ctx.get_help())
-        raise typer.Exit()
-    """本地 RAG 知识库 CLI"""
-    if version:
-        console.print("kb 0.1.0")
         raise typer.Exit()
 
 

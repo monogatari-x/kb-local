@@ -10,7 +10,7 @@ services:
       - ./config/qdrant.yaml:/qdrant/config/config.yaml:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      test: ["CMD-SHELL", "perl -e 'use IO::Socket::INET; IO::Socket::INET->new(PeerAddr=>\"localhost\",PeerPort=>6333,Proto=>\"tcp\",Timeout=>2) or exit 1'"]
       interval: 10s
       retries: 5
 
