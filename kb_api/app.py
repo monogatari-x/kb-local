@@ -7,7 +7,7 @@
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,20 +77,18 @@ def create_app(
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-    @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+    api_router = APIRouter(prefix="/api")
 
-    @app.get("/health")
+    @api_router.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/status")
+    @api_router.get("/status")
     def status() -> dict[str, int]:
         s: SQLiteStore = app.state.store
-        docs = s.conn.execute(
-            "SELECT COUNT(*) FROM documents WHERE status = 'active'"
-        ).fetchone()[0]
+        docs = s.conn.execute("SELECT COUNT(*) FROM documents WHERE status = 'active'").fetchone()[
+            0
+        ]
         chunks = s.conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
         watch_dirs = s.conn.execute("SELECT COUNT(*) FROM watch_dirs").fetchone()[0]
         jobs = s.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
@@ -101,16 +99,15 @@ def create_app(
             "jobs": jobs,
         }
 
-    @app.get("/projects")
+    @api_router.get("/projects")
     def projects() -> dict[str, list[str]]:
         s: SQLiteStore = app.state.store
         rows = s.conn.execute(
-            "SELECT DISTINCT project FROM documents WHERE status = 'active' "
-            "ORDER BY project"
+            "SELECT DISTINCT project FROM documents WHERE status = 'active' ORDER BY project"
         ).fetchall()
         return {"projects": [r["project"] for r in rows]}
 
-    @app.post("/search")
+    @api_router.post("/search")
     def search(req: SearchRequest) -> dict[str, list[dict[str, Any]]]:
         if app.state.retrieval is None:
             raise HTTPException(status_code=503, detail="retrieval pipeline not bootstrapped")
@@ -132,12 +129,13 @@ def create_app(
                     "score": r.final_score,
                     "chunk_type": r.chunk.chunk_type.value,
                     "project": r.document.project if r.document else None,
+                    "chunk_id": r.chunk.chunk_id,
                 }
                 for r in results
             ]
         }
 
-    @app.post("/add")
+    @api_router.post("/add")
     def add(req: AddRequest) -> dict[str, str]:
         if app.state.pipeline is None:
             raise HTTPException(status_code=503, detail="indexing pipeline not bootstrapped")
@@ -154,5 +152,11 @@ def create_app(
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
         return {"doc_id": doc_id}
+
+    app.include_router(api_router)
+
+    @app.get("/")
+    def index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
 
     return app

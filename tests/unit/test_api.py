@@ -26,13 +26,13 @@ def client(tmp_path: Path):
 
 
 def test_health_endpoint(client):
-    r = client.get("/health")
+    r = client.get("/api/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
 
 
 def test_status_endpoint_returns_counts(client):
-    r = client.get("/status")
+    r = client.get("/api/status")
     assert r.status_code == 200
     body = r.json()
     assert "documents" in body
@@ -41,7 +41,7 @@ def test_status_endpoint_returns_counts(client):
 
 
 def test_search_endpoint_empty_kb(client):
-    r = client.post("/search", json={"query": "anything"})
+    r = client.post("/api/search", json={"query": "anything"})
     assert r.status_code == 200
     assert r.json() == {"results": []}
 
@@ -57,12 +57,26 @@ def test_projects_endpoint_returns_distinct_projects(client):
         store.conn.execute(
             f"INSERT INTO documents({cols}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                did, f"p/{rel}", rel, proj, "md", "", "x", 1,
-                "2026-07-29T00:00:00", "2026-07-29T00:00:00", "2026-07-29T00:00:00",
-                "v1", "v1", "active", None, "[]", "{}",
+                did,
+                f"p/{rel}",
+                rel,
+                proj,
+                "md",
+                "",
+                "x",
+                1,
+                "2026-07-29T00:00:00",
+                "2026-07-29T00:00:00",
+                "2026-07-29T00:00:00",
+                "v1",
+                "v1",
+                "active",
+                None,
+                "[]",
+                "{}",
             ),
         )
-    r = client.get("/projects")
+    r = client.get("/api/projects")
     assert r.status_code == 200
     projects = r.json()["projects"]
     assert sorted(projects) == ["iam", "yaf"]
