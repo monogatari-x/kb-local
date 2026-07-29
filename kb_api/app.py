@@ -45,6 +45,28 @@ class DocumentsRequest(BaseModel):
     page_size: int = Field(default=50, ge=1, le=200)
 
 
+class ChunksListRequest(BaseModel):
+    doc_id: str | None = None
+    project: str | None = None
+    chunk_type: (
+        Literal[
+            "paragraph",
+            "heading",
+            "code_function",
+            "code_class",
+            "code_statement",
+            "table",
+            "list",
+            "image_caption",
+            "mixed",
+        ]
+        | None
+    ) = None
+    q: str | None = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=200)
+
+
 def create_app(
     store: SQLiteStore | None = None,
     settings: KBSettings | None = None,
@@ -153,6 +175,60 @@ def create_app(
             "page": req.page,
             "page_size": req.page_size,
         }
+
+    @api_router.get("/chunks")
+    def list_chunks(req: ChunksListRequest = Depends()) -> dict[str, Any]:
+        s: SQLiteStore = app.state.store
+        where = []
+        params: list[Any] = []
+        if req.doc_id:
+            where.append("c.doc_id = ?")
+            params.append(req.doc_id)
+        if req.project:
+            where.append("d.project = ?")
+            params.append(req.project)
+        if req.chunk_type:
+            where.append("c.chunk_type = ?")
+            params.append(req.chunk_type)
+        if req.q:
+            where.append("c.text_truncated LIKE ?")
+            params.append(f"%{req.q}%")
+        where_clause = (" WHERE " + " AND ".join(where)) if where else ""
+
+        total = s.conn.execute(
+            f"SELECT COUNT(*) FROM chunks c LEFT JOIN documents d "
+            f"ON c.doc_id = d.doc_id{where_clause}",
+            params,
+        ).fetchone()[0]
+
+        offset = (req.page - 1) * req.page_size
+        rows = s.conn.execute(
+            f"SELECT c.chunk_id, c.doc_id, c.chunk_type, c.text_truncated, "
+            f"c.start_line, c.end_line, c.language, c.ordinal "
+            f"FROM chunks c LEFT JOIN documents d ON c.doc_id = d.doc_id "
+            f"{where_clause} ORDER BY c.doc_id, c.ordinal "
+            f"LIMIT ? OFFSET ?",
+            [*params, req.page_size, offset],
+        ).fetchall()
+
+        return {
+            "items": [dict(r) for r in rows],
+            "total": total,
+            "page": req.page,
+            "page_size": req.page_size,
+        }
+
+    @api_router.get("/chunks/{chunk_id}")
+    def get_chunk(chunk_id: str) -> dict[str, Any]:
+        s: SQLiteStore = app.state.store
+        row = s.conn.execute(
+            "SELECT chunk_id, doc_id, chunk_type, text, start_line, end_line, "
+            "language, section_path, symbol_path FROM chunks WHERE chunk_id = ?",
+            (chunk_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"chunk not found: {chunk_id}")
+        return dict(row)
 
     @api_router.post("/search")
     def search(req: SearchRequest) -> dict[str, list[dict[str, Any]]]:

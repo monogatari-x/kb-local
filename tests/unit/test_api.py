@@ -182,3 +182,91 @@ def test_documents_endpoint_sorting_by_size(client):
 def test_documents_endpoint_rejects_unknown_sort(client):
     r = client.get("/api/documents", params={"sort": "sha256"})
     assert r.status_code == 422
+
+
+def _insert_chunk(store, chunk_id, doc_id, ordinal, text, chunk_type, start_line, end_line):
+    store.conn.execute(
+        """INSERT INTO chunks(chunk_id, doc_id, ordinal, text, text_truncated, tokens,
+               content_hash, start_char, end_char, start_line, end_line,
+               section_path, symbol_path, chunk_type, quality_score, language, meta)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            chunk_id,
+            doc_id,
+            ordinal,
+            text,
+            text[:500],
+            len(text.split()),
+            "h",
+            0,
+            len(text),
+            start_line,
+            end_line,
+            None,
+            None,
+            chunk_type,
+            0.9,
+            "python",
+            "{}",
+        ),
+    )
+
+
+def test_chunks_endpoint_filters_by_doc_id(client):
+    store = client.app.state.store
+    _insert_doc(store, "d1", "yaf", "active", "a.md", 100, "2026-07-29T00:00:00")
+    _insert_chunk(store, "c1", "d1", 0, "chunk one", "paragraph", 1, 2)
+    _insert_chunk(store, "c2", "d1", 1, "chunk two", "paragraph", 3, 4)
+    r = client.get("/api/chunks", params={"doc_id": "d1"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 2
+    assert {
+        "chunk_id",
+        "doc_id",
+        "chunk_type",
+        "text_truncated",
+        "start_line",
+        "end_line",
+    }.issubset(body["items"][0].keys())
+
+
+def test_chunks_endpoint_filters_by_chunk_type(client):
+    store = client.app.state.store
+    _insert_doc(store, "d1", "yaf", "active", "a.md", 100, "2026-07-29T00:00:00")
+    _insert_chunk(store, "c1", "d1", 0, "a", "paragraph", 1, 2)
+    _insert_chunk(store, "c2", "d1", 1, "def f(): pass", "code_function", 3, 4)
+    r = client.get("/api/chunks", params={"chunk_type": "code_function"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["chunk_type"] == "code_function"
+
+
+def test_chunks_endpoint_paginates(client):
+    store = client.app.state.store
+    _insert_doc(store, "d1", "yaf", "active", "a.md", 100, "2026-07-29T00:00:00")
+    for i in range(5):
+        _insert_chunk(store, f"c{i}", "d1", i, f"text {i}", "paragraph", i, i + 1)
+    r = client.get("/api/chunks", params={"doc_id": "d1", "page": 1, "page_size": 2})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 5
+    assert len(body["items"]) == 2
+
+
+def test_chunks_detail_returns_full_text(client):
+    store = client.app.state.store
+    _insert_doc(store, "d1", "yaf", "active", "a.md", 100, "2026-07-29T00:00:00")
+    _insert_chunk(store, "c1", "d1", 0, "full content here", "paragraph", 1, 2)
+    r = client.get("/api/chunks/c1")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["chunk_id"] == "c1"
+    assert body["text"] == "full content here"
+    assert body["doc_id"] == "d1"
+
+
+def test_chunks_detail_404(client):
+    r = client.get("/api/chunks/nonexistent")
+    assert r.status_code == 404
