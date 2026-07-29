@@ -338,3 +338,16 @@ def test_jobs_endpoint_filters_by_status(client):
     body = r.json()
     assert len(body["items"]) == 1
     assert body["items"][0]["status"] == "running"
+
+
+def test_spa_fallback_returns_index_for_unknown_path(client):
+    r = client.get("/some/vue/route")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "<!DOCTYPE html>" in r.text
+
+
+def test_api_routes_not_swallowed_by_spa_fallback(client):
+    r = client.get("/api/nonexistent")
+    assert r.status_code == 404
+    assert "text/html" not in r.headers.get("content-type", "")

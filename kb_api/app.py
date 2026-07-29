@@ -7,9 +7,9 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,9 @@ from kb_core.config import load_settings
 from kb_core.pipelines.retrieval import RetrievalPipeline
 from kb_core.stores.sqlite_store import SQLiteStore
 
-STATIC_DIR = Path(__file__).parent / "static"
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+STATIC_FALLBACK = Path(__file__).parent / "static"
+STATIC_DIR = FRONTEND_DIST if FRONTEND_DIST.is_dir() else STATIC_FALLBACK
 
 
 class SearchRequest(BaseModel):
@@ -312,8 +314,16 @@ def create_app(
 
     app.include_router(api_router)
 
-    @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+    if STATIC_DIR.is_dir():
+        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="spa")
+
+        @app.exception_handler(404)
+        async def spa_fallback(request: Request, exc: HTTPException) -> Response:
+            if request.url.path.startswith("/api/"):
+                return JSONResponse({"detail": exc.detail}, status_code=404)
+            index_file = STATIC_DIR / "index.html"
+            if index_file.is_file():
+                return FileResponse(index_file, media_type="text/html")
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
 
     return app
