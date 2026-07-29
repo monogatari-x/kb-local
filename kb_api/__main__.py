@@ -4,6 +4,11 @@
     uv run python -m kb_api [--host 0.0.0.0] [--port 8000]
 """
 
+import os
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 import typer
 import uvicorn
 
