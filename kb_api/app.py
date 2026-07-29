@@ -9,12 +9,16 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from kb_core.config import Settings as KBSettings
 from kb_core.config import load_settings
 from kb_core.pipelines.retrieval import RetrievalPipeline
 from kb_core.stores.sqlite_store import SQLiteStore
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 class SearchRequest(BaseModel):
@@ -70,6 +74,13 @@ def create_app(
     app.state.retrieval = retrieval
     app.state.pipeline = pipeline
 
+    if STATIC_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/")
+    def index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -89,6 +100,15 @@ def create_app(
             "watch_dirs": watch_dirs,
             "jobs": jobs,
         }
+
+    @app.get("/projects")
+    def projects() -> dict[str, list[str]]:
+        s: SQLiteStore = app.state.store
+        rows = s.conn.execute(
+            "SELECT DISTINCT project FROM documents WHERE status = 'active' "
+            "ORDER BY project"
+        ).fetchall()
+        return {"projects": [r["project"] for r in rows]}
 
     @app.post("/search")
     def search(req: SearchRequest) -> dict[str, list[dict[str, Any]]]:
