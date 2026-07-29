@@ -6,9 +6,12 @@
 
 from __future__ import annotations
 
+import sys
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+import anyio
 from mcp.server.fastmcp import FastMCP
 
 from kb_core.config import Settings, load_settings
@@ -59,13 +62,83 @@ def _build_retrieval() -> RetrievalPipeline:
 def _get_retrieval() -> RetrievalPipeline:
     if "retrieval" not in _state:
         _build_retrieval()
-    from kb_core.pipelines.retrieval import RetrievalPipeline
+    return cast("RetrievalPipeline", _state["retrieval"])
 
-    return cast(RetrievalPipeline, _state["retrieval"])
+
+def prewarm() -> None:
+    """在 FastMCP 启动前(主线程)预加载 BGE-M3 模型。
+
+    PyTorch 在 anyio 工作线程里首次加载会触发 GIL 死锁,导致 kb_search 永久卡死。
+    在主线程预加载可避免此问题,后续搜索由已加载的模型处理,响应秒级。
+    """
+    try:
+        _build_retrieval()
+    except Exception as e:
+        sys.stderr.write(
+            f"[kb-local] prewarm failed: {type(e).__name__}: {e}\n"
+            f"搜索工具将不可用。请确认 Qdrant 已启动 (docker compose up -d) "
+            f"且模型已下载 (uv run python scripts/download_models.py)\n"
+        )
+        sys.stderr.flush()
+
+
+def _do_search(
+    query: str, top_k: int, project: str | None, threshold: float, rerank: bool
+) -> str:
+    try:
+        retrieval = _get_retrieval()
+    except Exception as e:
+        return (
+            f"检索引擎初始化失败: {type(e).__name__}: {e}\n"
+            f"可能原因: Qdrant 未启动或模型加载失败。\n"
+            f"请确认: ① Docker 运行中(docker compose up -d) "
+            f"② 模型已下载(uv run python scripts/download_models.py)\n"
+            f"详情: {traceback.format_exc(limit=3)}"
+        )
+
+    filters: dict[str, Any] | None = None
+    if project:
+        filters = {"must": [{"key": "project", "match": {"value": project}}]}
+
+    try:
+        results = retrieval.search(
+            query,
+            top_k=top_k,
+            filters=filters,
+            score_threshold=threshold,
+            rerank=rerank,
+        )
+    except Exception as e:
+        return (
+            f"检索失败: {type(e).__name__}: {e}\n"
+            f"可能原因: Qdrant 连接断开或查询参数异常。\n"
+            f"请确认: Docker 和 Qdrant 正在运行(docker compose ps)。\n"
+            f"详情: {traceback.format_exc(limit=3)}"
+        )
+
+    if not results:
+        return (
+            f"未找到匹配结果(query={query!r})。\n"
+            f"可能原因: ① 知识库还没索引到这个主题 "
+            f"(让用户跑 `uv run kb jobs run --type full_scan`); "
+            f"② 阈值过高(让用户重试 threshold=0.2 或更低)。\n"
+            f"不要再重试本工具,如实告知用户。"
+        )
+
+    lines = [f"# 检索结果 ({len(results)} 条)\n"]
+    for i, r in enumerate(results, 1):
+        lines.append(f"## #{i}  {r.citation}")
+        lines.append(f"score={r.final_score:.3f}  type={r.chunk.chunk_type.value}")
+        lines.append("")
+        lines.append("```")
+        lines.append(r.chunk.text)
+        lines.append("```")
+        lines.append("")
+    return "\n".join(lines)
 
 
 @mcp.tool()
-def kb_search(
+async def kb_search(
     query: str,
     top_k: int = 10,
     project: str | None = None,
@@ -102,60 +175,48 @@ def kb_search(
         带行号引用的代码/文档片段,格式 "path:line-line (symbol)"。
         空结果时返回 "未找到匹配结果",此时不要重试,如实告知用户。
     """
-    retrieval = _get_retrieval()
-    filters: dict[str, Any] | None = None
-    if project:
-        filters = {"must": [{"key": "project", "match": {"value": project}}]}
-    results = retrieval.search(
-        query,
-        top_k=top_k,
-        filters=filters,
-        score_threshold=threshold,
-        rerank=rerank,
+    return await anyio.to_thread.run_sync(
+        lambda: _do_search(query, top_k, project, threshold, rerank)
     )
-    if not results:
-        return (
-            f"未找到匹配结果(query={query!r})。\n"
-            f"可能原因: ① 知识库还没索引到这个主题 "
-            f"(让用户跑 `uv run kb jobs run --type full_scan`); "
-            f"② 阈值过高(让用户重试 threshold=0.2 或更低)。\n"
-            f"不要再重试本工具,如实告知用户。"
-        )
 
-    lines = [f"# 检索结果 ({len(results)} 条)\n"]
-    for i, r in enumerate(results, 1):
-        lines.append(f"## #{i}  {r.citation}")
-        lines.append(f"score={r.final_score:.3f}  type={r.chunk.chunk_type.value}")
-        lines.append("")
-        lines.append("```")
-        lines.append(r.chunk.text)
-        lines.append("```")
-        lines.append("")
-    return "\n".join(lines)
+
+def _do_status() -> str:
+    try:
+        store = _get_store()
+        docs = store.conn.execute(
+            "SELECT COUNT(*) FROM documents WHERE status = 'active'"
+        ).fetchone()[0]
+        chunks = store.conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        watch_dirs = store.conn.execute(
+            "SELECT COUNT(*) FROM watch_dirs"
+        ).fetchone()[0]
+        jobs = store.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        cache = store.conn.execute(
+            "SELECT COUNT(*) FROM embedding_cache"
+        ).fetchone()[0]
+        return (
+            f"知识库状态:\n"
+            f"- 监控目录: {watch_dirs}\n"
+            f"- 活跃文档: {docs}\n"
+            f"- 切片总数: {chunks}\n"
+            f"- 任务记录: {jobs}\n"
+            f"- 嵌入缓存: {cache}"
+        )
+    except Exception as e:
+        return (
+            f"获取状态失败: {type(e).__name__}: {e}\n"
+            f"详情: {traceback.format_exc(limit=3)}"
+        )
 
 
 @mcp.tool()
-def kb_status() -> str:
+async def kb_status() -> str:
     """返回知识库当前状态:文档数、切片数、监控目录数等。"""
-    store = _get_store()
-    docs = store.conn.execute(
-        "SELECT COUNT(*) FROM documents WHERE status = 'active'"
-    ).fetchone()[0]
-    chunks = store.conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
-    watch_dirs = store.conn.execute("SELECT COUNT(*) FROM watch_dirs").fetchone()[0]
-    jobs = store.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-    cache = store.conn.execute("SELECT COUNT(*) FROM embedding_cache").fetchone()[0]
-    return (
-        f"知识库状态:\n"
-        f"- 监控目录: {watch_dirs}\n"
-        f"- 活跃文档: {docs}\n"
-        f"- 切片总数: {chunks}\n"
-        f"- 任务记录: {jobs}\n"
-        f"- 嵌入缓存: {cache}"
-    )
+    return await anyio.to_thread.run_sync(_do_status)
 
 
 def main() -> None:
+    prewarm()
     mcp.run()
 
 
