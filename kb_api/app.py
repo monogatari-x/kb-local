@@ -5,13 +5,13 @@
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kb_core.config import Settings as KBSettings
 from kb_core.config import load_settings
@@ -33,6 +33,16 @@ class AddRequest(BaseModel):
     path: str
     project: str = "manual"
     strategy: str = "fixed"
+
+
+class DocumentsRequest(BaseModel):
+    project: str | None = None
+    status: str | None = None
+    q: str | None = None
+    sort: Literal["ingested_at", "size_bytes", "project", "file_type"] = "ingested_at"
+    order: Literal["asc", "desc"] = "desc"
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=200)
 
 
 def create_app(
@@ -106,6 +116,43 @@ def create_app(
             "SELECT DISTINCT project FROM documents WHERE status = 'active' ORDER BY project"
         ).fetchall()
         return {"projects": [r["project"] for r in rows]}
+
+    @api_router.get("/documents")
+    def documents(req: DocumentsRequest = Depends()) -> dict[str, Any]:
+        s: SQLiteStore = app.state.store
+        where = []
+        params: list[Any] = []
+        if req.project:
+            where.append("project = ?")
+            params.append(req.project)
+        if req.status:
+            where.append("status = ?")
+            params.append(req.status)
+        if req.q:
+            where.append("(rel_path LIKE ? OR source_path LIKE ?)")
+            like = f"%{req.q}%"
+            params.extend([like, like])
+        where_clause = (" WHERE " + " AND ".join(where)) if where else ""
+
+        total = s.conn.execute(f"SELECT COUNT(*) FROM documents{where_clause}", params).fetchone()[
+            0
+        ]
+
+        offset = (req.page - 1) * req.page_size
+        rows = s.conn.execute(
+            f"SELECT doc_id, source_path, rel_path, project, file_type, language, "
+            f"size_bytes, ingested_at, indexed_at, status "
+            f"FROM documents{where_clause} "
+            f"ORDER BY {req.sort} {req.order.upper()} LIMIT ? OFFSET ?",
+            [*params, req.page_size, offset],
+        ).fetchall()
+
+        return {
+            "items": [dict(r) for r in rows],
+            "total": total,
+            "page": req.page,
+            "page_size": req.page_size,
+        }
 
     @api_router.post("/search")
     def search(req: SearchRequest) -> dict[str, list[dict[str, Any]]]:
