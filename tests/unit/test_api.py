@@ -270,3 +270,71 @@ def test_chunks_detail_returns_full_text(client):
 def test_chunks_detail_404(client):
     r = client.get("/api/chunks/nonexistent")
     assert r.status_code == 404
+
+
+def test_watch_dirs_endpoint(client):
+    store = client.app.state.store
+    store.conn.execute(
+        """INSERT INTO watch_dirs(path, project_name, project_strategy, file_types,
+               exclude_patterns, recursive, created_at, last_scan_at, include_patterns)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        (
+            "C:/projects/yaf",
+            "yaf",
+            "fixed",
+            "[]",
+            "[]",
+            1,
+            "2026-07-29T00:00:00",
+            "2026-07-29T10:00:00",
+            "[]",
+        ),
+    )
+    r = client.get("/api/watch-dirs")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["items"]) == 1
+    item = body["items"][0]
+    assert item["path"] == "C:/projects/yaf"
+    assert item["project_name"] == "yaf"
+    assert item["recursive"] == 1
+
+
+def test_jobs_endpoint_returns_all_by_default(client):
+    store = client.app.state.store
+    for i, status in enumerate(["running", "succeeded", "failed"]):
+        store.conn.execute(
+            """INSERT INTO jobs(job_id, type, status, started_at, finished_at,
+                   total_files, processed_files, failed_files, error_log, trigger)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (
+                f"j{i}",
+                "scan",
+                status,
+                "2026-07-29T00:00:00",
+                None if status == "running" else "2026-07-29T01:00:00",
+                10,
+                8 if status != "failed" else 0,
+                2 if status == "failed" else 0,
+                "boom" if status == "failed" else None,
+                "manual",
+            ),
+        )
+    r = client.get("/api/jobs")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["items"]) == 3
+
+
+def test_jobs_endpoint_filters_by_status(client):
+    store = client.app.state.store
+    for i, status in enumerate(["running", "succeeded"]):
+        store.conn.execute(
+            """INSERT INTO jobs(job_id, type, status, started_at) VALUES (?,?,?,?)""",
+            (f"j{i}", "scan", status, "2026-07-29T00:00:00"),
+        )
+    r = client.get("/api/jobs", params={"status": "running"})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["status"] == "running"

@@ -67,6 +67,11 @@ class ChunksListRequest(BaseModel):
     page_size: int = Field(default=50, ge=1, le=200)
 
 
+class JobsRequest(BaseModel):
+    status: str | None = None
+    limit: int = Field(default=50, ge=1, le=500)
+
+
 def create_app(
     store: SQLiteStore | None = None,
     settings: KBSettings | None = None,
@@ -229,6 +234,35 @@ def create_app(
         if row is None:
             raise HTTPException(status_code=404, detail=f"chunk not found: {chunk_id}")
         return dict(row)
+
+    @api_router.get("/watch-dirs")
+    def watch_dirs() -> dict[str, Any]:
+        s: SQLiteStore = app.state.store
+        rows = s.conn.execute(
+            "SELECT id, path, project_name, project_strategy, recursive, "
+            "file_types, exclude_patterns, include_patterns, created_at, last_scan_at "
+            "FROM watch_dirs ORDER BY id"
+        ).fetchall()
+        return {"items": [dict(r) for r in rows]}
+
+    @api_router.get("/jobs")
+    def jobs(req: JobsRequest = Depends()) -> dict[str, Any]:
+        s: SQLiteStore = app.state.store
+        if req.status:
+            rows = s.conn.execute(
+                "SELECT job_id, type, status, started_at, finished_at, "
+                "total_files, processed_files, failed_files, error_log, trigger "
+                "FROM jobs WHERE status = ? ORDER BY started_at DESC LIMIT ?",
+                (req.status, req.limit),
+            ).fetchall()
+        else:
+            rows = s.conn.execute(
+                "SELECT job_id, type, status, started_at, finished_at, "
+                "total_files, processed_files, failed_files, error_log, trigger "
+                "FROM jobs ORDER BY started_at DESC LIMIT ?",
+                (req.limit,),
+            ).fetchall()
+        return {"items": [dict(r) for r in rows]}
 
     @api_router.post("/search")
     def search(req: SearchRequest) -> dict[str, list[dict[str, Any]]]:
