@@ -93,7 +93,6 @@ onMounted(async () => {
   try {
     projects.value = await fetchProjects()
   } catch {
-    // optional
   }
   await load()
 })
