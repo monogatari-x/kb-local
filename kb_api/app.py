@@ -19,8 +19,7 @@ from kb_core.pipelines.retrieval import RetrievalPipeline
 from kb_core.stores.sqlite_store import SQLiteStore
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
-STATIC_FALLBACK = Path(__file__).parent / "static"
-STATIC_DIR = FRONTEND_DIST if FRONTEND_DIST.is_dir() else STATIC_FALLBACK
+STATIC_DIR = FRONTEND_DIST
 
 
 class SearchRequest(BaseModel):
@@ -113,7 +112,7 @@ def create_app(
     app.state.retrieval = retrieval
     app.state.pipeline = pipeline
 
-    if STATIC_DIR.is_dir():
+    if FRONTEND_DIST.is_dir():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     api_router = APIRouter(prefix="/api")
@@ -314,13 +313,17 @@ def create_app(
 
     app.include_router(api_router)
 
-    if STATIC_DIR.is_dir():
+    if FRONTEND_DIST.is_dir():
         app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="spa")
 
         @app.exception_handler(404)
         async def spa_fallback(request: Request, exc: HTTPException) -> Response:
-            if request.url.path.startswith("/api/"):
+            path = request.url.path
+            if path.startswith("/api/"):
                 return JSONResponse({"detail": exc.detail}, status_code=404)
+            suffix = Path(path).suffix.lower()
+            if suffix and suffix != ".html":
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
             index_file = STATIC_DIR / "index.html"
             if index_file.is_file():
                 return FileResponse(index_file, media_type="text/html")

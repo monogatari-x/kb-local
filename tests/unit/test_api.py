@@ -351,3 +351,37 @@ def test_api_routes_not_swallowed_by_spa_fallback(client):
     r = client.get("/api/nonexistent")
     assert r.status_code == 404
     assert "text/html" not in r.headers.get("content-type", "")
+
+
+def test_spa_fallback_returns_404_for_missing_static_asset(client):
+    r = client.get("/assets/missing-hash.js")
+    assert r.status_code == 404
+    assert "text/html" not in r.headers.get("content-type", "")
+    assert r.headers["content-type"].startswith("application/json")
+
+
+def test_spa_fallback_returns_404_for_favicon(client):
+    r = client.get("/favicon.ico")
+    assert r.status_code == 404
+    assert "text/html" not in r.headers.get("content-type", "")
+
+
+def test_search_endpoint_returns_chunk_id_in_results(client):
+    _insert_doc(client.app.state.store, "d1", "yaf", "active", "a.md", 100, "2026-07-29T00:00:00")
+    _insert_chunk(client.app.state.store, "c1", "d1", 0, "login code", "code_function", 1, 2)
+
+    fake_result = MagicMock()
+    fake_result.chunk.chunk_id = "c1"
+    fake_result.chunk.text = "login code"
+    fake_result.chunk.chunk_type.value = "code_function"
+    fake_result.citation = "a.md:1-2"
+    fake_result.final_score = 0.85
+    fake_result.document.project = "yaf"
+
+    client.app.state.retrieval.search.return_value = [fake_result]
+
+    r = client.post("/api/search", json={"query": "login"})
+    assert r.status_code == 200
+    results = r.json()["results"]
+    assert len(results) == 1
+    assert results[0]["chunk_id"] == "c1"

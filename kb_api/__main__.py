@@ -24,8 +24,8 @@ def main(
     if not dist.is_dir():
         sys.stderr.write(
             "[kb-api] WARNING: frontend/dist not found. "
-            "Run `cd frontend && npm run build` to enable Vue UI. "
-            "Falling back to kb_api/static/.\n"
+            "Run `cd frontend && npm run build` to enable Vue UI; "
+            "otherwise HTTP / will return 404.\n"
         )
     uvicorn.run(
         "kb_api.app:create_app",
