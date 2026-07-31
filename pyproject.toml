@@ -57,6 +57,9 @@ extend-immutable-calls = [
     "typer.Argument",
     "typer.Option",
     "typer.launch",
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
 ]
 
 [tool.mypy]
