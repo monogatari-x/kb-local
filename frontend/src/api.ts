@@ -26,7 +26,6 @@ export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
       const body = await r.json()
       if (body?.detail) msg = `${r.status}: ${body.detail}`
     } catch {
-      // response body is not JSON, keep default msg
     }
     throw new ApiError(r.status, msg)
   }
