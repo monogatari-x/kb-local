@@ -19,7 +19,8 @@
 
 ### 接入方式
 - **CLI**:`kb add` / `kb search` / `kb watch` / `kb jobs` / `kb status`
-- **REST API**:FastAPI,`POST /search`、`POST /add`、`GET /status`
+- **Web UI**:Vue SPA(搜索 + 文档/切片/任务/监控目录列表),`GET /` serve 自 `frontend/dist/`
+- **REST API**:FastAPI,所有 JSON 端点在 `/api/*` 前缀下:`/api/search`、`/api/add`、`/api/status`、`/api/projects`、`/api/documents`、`/api/chunks`、`/api/chunks/{id}`、`/api/watch-dirs`、`/api/jobs`、`/api/health`
 - **MCP Server**:Claude Code / Cursor 直接调用 `kb_search` 工具
 
 ### 自动化
@@ -84,10 +85,21 @@ uv run kb search "用户登录逻辑" --top-k 5
 uv run kb search "..." --project myproject --threshold 0.5
 uv run kb search "..." --rerank  # 启用 reranker 精排
 
-# REST API
+# Web UI(需先构建前端)
+cd frontend && npm install && npm run build && cd ..
 uv run python -m kb_api  # 启动 0.0.0.0:8000
-curl -X POST http://localhost:8000/search -H "Content-Type: application/json" \
+# 浏览器打开 http://localhost:8000/
+
+# REST API
+curl -X POST http://localhost:8000/api/search -H "Content-Type: application/json" \
   -d '{"query": "用户登录", "top_k": 5}'
+```
+
+前端开发模式(Vite 5173 代理到 Python 8000):
+
+```bash
+uv run python -m kb_api           # Terminal 1
+cd frontend && npm run dev        # Terminal 2,http://localhost:5173/
 ```
 
 ## AI 原生接入(Claude Code / Cursor)
@@ -151,9 +163,8 @@ GPU 加速或跨文件批量嵌入可显著提升索引速度。
 
 ## 架构与文档
 
-- 设计文档:`docs/superpowers/specs/2026-07-22-local-rag-kb-design.md`
-- 实施计划:`docs/superpowers/plans/2026-07-22-local-rag-kb-mvp.md`
-- 进度记录:`.superpowers/sdd/progress.md`(本地)
+- 设计文档:`docs/superpowers/specs/2026-07-22-local-rag-kb-design.md`(初版 RAG)、`docs/superpowers/specs/2026-07-29-kb-api-webui-enhancement-design.md`(Web UI 增强)
+- 实施计划:`docs/superpowers/plans/2026-07-22-local-rag-kb-mvp.md`、`docs/superpowers/plans/2026-07-29-kb-api-webui-enhancement.md`
 
 ## 硬件建议
 
