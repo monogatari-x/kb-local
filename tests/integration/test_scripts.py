@@ -24,3 +24,14 @@ def test_download_models_help_runs():
         timeout=10,
     )
     assert result.returncode == 0
+
+
+def test_backup_help_runs():
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS / "backup.py"), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert "dry-run" in result.stdout.lower()
