@@ -15,13 +15,23 @@ from kb_core.utils.hashing import sha256_of_file
 from kb_core.utils.paths import infer_project, rel_path
 
 _EXT_TO_FILETYPE = {
-    ".php": FileType.CODE, ".py": FileType.CODE, ".java": FileType.CODE,
-    ".js": FileType.CODE, ".ts": FileType.CODE, ".go": FileType.CODE,
-    ".md": FileType.MARKDOWN, ".markdown": FileType.MARKDOWN,
-    ".txt": FileType.TEXT, ".log": FileType.TEXT,
-    ".pdf": FileType.TEXT, ".docx": FileType.TEXT,
-    ".xlsx": FileType.TEXT, ".xls": FileType.TEXT,
+    ".php": FileType.CODE,
+    ".py": FileType.CODE,
+    ".java": FileType.CODE,
+    ".js": FileType.CODE,
+    ".ts": FileType.CODE,
+    ".go": FileType.CODE,
+    ".md": FileType.MARKDOWN,
+    ".markdown": FileType.MARKDOWN,
+    ".txt": FileType.TEXT,
+    ".log": FileType.TEXT,
+    ".pdf": FileType.TEXT,
+    ".docx": FileType.TEXT,
+    ".xlsx": FileType.TEXT,
+    ".xls": FileType.TEXT,
 }
+
+PARSER_VERSION = "0.2.0"
 
 
 class IndexingPipeline:
@@ -56,12 +66,19 @@ class IndexingPipeline:
         sha = sha256_of_file(path)
         existing = self.sqlite_store.get_document_by_path(str(path))
 
-        if existing is not None and existing.sha256 == sha and existing.status == DocStatus.ACTIVE:
+        if (
+            existing is not None
+            and existing.sha256 == sha
+            and existing.status == DocStatus.ACTIVE
+            and existing.parser_version == PARSER_VERSION
+        ):
             return existing.doc_id
 
         loaded = loader.load(path)
-        chunker_key = "code" if file_type == FileType.CODE else (
-            "markdown" if file_type == FileType.MARKDOWN else "text"
+        chunker_key = (
+            "code"
+            if file_type == FileType.CODE
+            else ("markdown" if file_type == FileType.MARKDOWN else "text")
         )
         chunker = self.chunkers[chunker_key]
         raw_chunks = chunker.chunk(loaded)
@@ -85,7 +102,7 @@ class IndexingPipeline:
             ingested_at=datetime.now(),
             indexed_at=datetime.now(),
             embedding_version=getattr(self.embedder, "model_name", "unknown"),
-            parser_version="0.1.0",
+            parser_version=PARSER_VERSION,
         )
         for c in raw_chunks:
             c.doc_id = doc_id
@@ -106,7 +123,5 @@ class IndexingPipeline:
 
     def remove_document(self, doc_id: str) -> None:
         self.sqlite_store.delete_chunks_of_doc(doc_id)
-        self.sqlite_store.conn.execute(
-            "DELETE FROM documents WHERE doc_id = ?", (doc_id,)
-        )
+        self.sqlite_store.conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
         self.qdrant_store.delete_by_doc(doc_id)
