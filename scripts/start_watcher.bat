@@ -5,8 +5,19 @@ REM 日志:%USERPROFILE%\.kb\watcher.log
 setlocal
 set HF_HUB_OFFLINE=1
 set PYTHONUNBUFFERED=1
-set KB_PROJECT_DIR=C:\Glow\Projects\kb-local
 set LOG_DIR=%USERPROFILE%\.kb
+
+REM 清代理:SOCKS 代理会让 qdrant_client 构造 httpx 客户端时 ImportError,管线建不起来
+set ALL_PROXY=
+set all_proxy=
+set HTTP_PROXY=
+set http_proxy=
+set HTTPS_PROXY=
+set https_proxy=
+
+REM 用脚本自身位置定位项目根:项目曾从 C: 迁到 D:,写死盘符会失效
+cd /d "%~dp0.."
+set KB_PROJECT_DIR=%CD%
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
@@ -16,7 +27,10 @@ if exist "%LOG_DIR%\watcher.log" move /Y "%LOG_DIR%\watcher.log" "%LOG_DIR%\watc
 REM uv 在用户目录,Task Scheduler 默认不带这个 PATH
 set PATH=%USERPROFILE%\.local\bin;%PATH%
 
-cd /d %KB_PROJECT_DIR%
-echo [%date% %time%] starting kb watch >> "%LOG_DIR%\watcher.log"
+echo [%date% %time%] starting kb watch (dir=%KB_PROJECT_DIR%) >> "%LOG_DIR%\watcher.log"
 uv run kb watch start >> "%LOG_DIR%\watcher.log" 2>&1
-echo [%date% %time%] watcher exited with code %errorlevel% >> "%LOG_DIR%\watcher.log"
+set EXIT_CODE=%errorlevel%
+echo [%date% %time%] watcher exited with code %EXIT_CODE% >> "%LOG_DIR%\watcher.log"
+
+REM 把退出码透传给任务计划程序,否则"失败自动重启"永不触发
+exit /b %EXIT_CODE%
