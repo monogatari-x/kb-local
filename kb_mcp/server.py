@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import anyio
 from mcp.server.fastmcp import FastMCP
@@ -20,7 +21,31 @@ from kb_core.stores.sqlite_store import SQLiteStore
 if TYPE_CHECKING:
     from kb_core.pipelines.retrieval import RetrievalPipeline
 
-mcp = FastMCP("kb-local")
+Transport = Literal["stdio", "streamable-http"]
+
+_HTTP_ALIASES = frozenset({"http", "streamable-http"})
+_DEFAULT_HOST = "127.0.0.1"
+_DEFAULT_PORT = 8765
+
+
+def _resolve_transport() -> Transport:
+    raw = os.environ.get("KB_MCP_TRANSPORT", "stdio").strip().lower()
+    return "streamable-http" if raw in _HTTP_ALIASES else "stdio"
+
+
+def _resolve_host() -> str:
+    return os.environ.get("KB_MCP_HOST", "").strip() or _DEFAULT_HOST
+
+
+def _resolve_port() -> int:
+    raw = os.environ.get("KB_MCP_PORT", "").strip()
+    if not raw.isdigit():
+        return _DEFAULT_PORT
+    port = int(raw)
+    return port if 1 <= port <= 65535 else _DEFAULT_PORT
+
+
+mcp = FastMCP("kb-local", host=_resolve_host(), port=_resolve_port())
 
 _state: dict[str, Any] = {}
 
@@ -82,9 +107,7 @@ def prewarm() -> None:
         sys.stderr.flush()
 
 
-def _do_search(
-    query: str, top_k: int, project: str | None, threshold: float, rerank: bool
-) -> str:
+def _do_search(query: str, top_k: int, project: str | None, threshold: float, rerank: bool) -> str:
     try:
         retrieval = _get_retrieval()
     except Exception as e:
@@ -187,13 +210,9 @@ def _do_status() -> str:
             "SELECT COUNT(*) FROM documents WHERE status = 'active'"
         ).fetchone()[0]
         chunks = store.conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
-        watch_dirs = store.conn.execute(
-            "SELECT COUNT(*) FROM watch_dirs"
-        ).fetchone()[0]
+        watch_dirs = store.conn.execute("SELECT COUNT(*) FROM watch_dirs").fetchone()[0]
         jobs = store.conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-        cache = store.conn.execute(
-            "SELECT COUNT(*) FROM embedding_cache"
-        ).fetchone()[0]
+        cache = store.conn.execute("SELECT COUNT(*) FROM embedding_cache").fetchone()[0]
         return (
             f"知识库状态:\n"
             f"- 监控目录: {watch_dirs}\n"
@@ -203,10 +222,7 @@ def _do_status() -> str:
             f"- 嵌入缓存: {cache}"
         )
     except Exception as e:
-        return (
-            f"获取状态失败: {type(e).__name__}: {e}\n"
-            f"详情: {traceback.format_exc(limit=3)}"
-        )
+        return f"获取状态失败: {type(e).__name__}: {e}\n详情: {traceback.format_exc(limit=3)}"
 
 
 @mcp.tool()
@@ -217,7 +233,10 @@ async def kb_status() -> str:
 
 def main() -> None:
     prewarm()
-    mcp.run()
+    transport = _resolve_transport()
+    if transport == "streamable-http":
+        mcp.settings.stateless_http = True
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":
