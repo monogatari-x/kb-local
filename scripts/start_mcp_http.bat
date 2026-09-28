@@ -29,10 +29,27 @@ if exist "%LOG_DIR%\mcp_http.log" move /Y "%LOG_DIR%\mcp_http.log" "%LOG_DIR%\mc
 
 echo [%date% %time%] starting kb_mcp (transport=%KB_MCP_TRANSPORT% port=%KB_MCP_PORT%) >> "%LOG_DIR%\mcp_http.log"
 
+REM 等 Qdrant 就绪(最多 180 秒):prewarm 在 Qdrant 未起时会失败,之后首次检索
+REM 只能在工作线程加载模型(有 GIL 死锁历史风险),故宁可在此等待
+set WAITED=0
+:wait_qdrant
+curl -s --noproxy "*" -o nul http://127.0.0.1:6333
+if %errorlevel%==0 goto qdrant_ready
+set /a WAITED+=5
+if %WAITED% geq 180 (
+    echo [%date% %time%] Qdrant not ready within 180s, starting anyway >> "%LOG_DIR%\mcp_http.log"
+    goto serve
+)
+timeout /t 5 /nobreak >nul
+goto wait_qdrant
+
+:qdrant_ready
+echo [%date% %time%] Qdrant is ready (waited %WAITED%s) >> "%LOG_DIR%\mcp_http.log"
+
 :serve
-REM 自愈循环:进程挂掉就 5 秒后重起(启动文件夹方式没有任务计划的"失败重启",故在此实现)
+REM 自愈循环:进程挂掉就 5 秒后重起,并重走 Qdrant 等待(挂因可能就是 Qdrant 掉了)
 "%KB_PROJECT_DIR%\.venv\Scripts\python.exe" -m kb_mcp >> "%LOG_DIR%\mcp_http.log" 2>&1
 set EXIT_CODE=%errorlevel%
 echo [%date% %time%] kb_mcp exited with code %EXIT_CODE%, restarting in 5s >> "%LOG_DIR%\mcp_http.log"
 timeout /t 5 /nobreak >nul
-goto serve
+goto wait_qdrant
