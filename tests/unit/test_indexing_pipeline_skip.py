@@ -1,10 +1,12 @@
 from pathlib import Path
 from typing import Any
 
+from kb_core.chunkers.code_chunker import CodeChunker
 from kb_core.chunkers.markdown_chunker import MarkdownChunker
+from kb_core.loaders.code_loader import CodeLoader
 from kb_core.loaders.markdown_loader import MarkdownLoader
 from kb_core.loaders.registry import LoaderRegistry
-from kb_core.pipelines.indexing import PARSER_VERSION, IndexingPipeline
+from kb_core.pipelines.indexing import PARSER_VERSIONS, IndexingPipeline
 from kb_core.stores.sqlite_store import SQLiteStore
 
 
@@ -32,6 +34,7 @@ class FakeQdrant:
 def _make_pipeline(db_path: Path) -> tuple[IndexingPipeline, FakeEmbedder, FakeQdrant]:
     reg = LoaderRegistry()
     reg.register(MarkdownLoader())
+    reg.register(CodeLoader())
     store = SQLiteStore(db_path)
     store.init_schema()
     embedder = FakeEmbedder()
@@ -41,7 +44,7 @@ def _make_pipeline(db_path: Path) -> tuple[IndexingPipeline, FakeEmbedder, FakeQ
         qdrant_store=qdrant,
         registry=reg,
         embedder=embedder,
-        chunkers={"markdown": MarkdownChunker()},
+        chunkers={"markdown": MarkdownChunker(), "code": CodeChunker()},
     )
     return pipeline, embedder, qdrant
 
@@ -70,6 +73,28 @@ def test_stale_parser_version_forces_rechunk(tmp_path: Path):
     new_id = pipeline.index_file(src, tmp_path, "first_subdir", "t")
     assert new_id == doc_id
     doc = pipeline.sqlite_store.get_document(doc_id)
-    assert doc is not None and doc.parser_version == PARSER_VERSION
+    assert doc is not None and doc.parser_version == PARSER_VERSIONS["markdown"]
     chunks = pipeline.sqlite_store.get_chunks_by_doc(doc_id)
     assert any("正文内容乙" in c.text for c in chunks)
+
+
+def test_unbumped_file_type_not_rechunked(tmp_path: Path):
+    pipeline, embedder, _ = _make_pipeline(tmp_path / "t3.db")
+    code = tmp_path / "m.py"
+    code.write_text("def f():\n    return 1\n", encoding="utf-8")
+    pipeline.index_file(code, tmp_path, "first_subdir", "t")
+    calls_after_code = embedder.calls
+    assert calls_after_code >= 1
+
+    doc = pipeline.sqlite_store.conn.execute(
+        "SELECT parser_version FROM documents WHERE source_path = ?", (str(code),)
+    ).fetchone()
+    assert doc is not None and doc["parser_version"] == PARSER_VERSIONS["code"]
+
+    original = PARSER_VERSIONS["markdown"]
+    PARSER_VERSIONS["markdown"] = "9.9.9"
+    try:
+        pipeline.index_file(code, tmp_path, "first_subdir", "t")
+        assert embedder.calls == calls_after_code
+    finally:
+        PARSER_VERSIONS["markdown"] = original

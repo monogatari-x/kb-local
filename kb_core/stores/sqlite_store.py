@@ -21,6 +21,8 @@ class SQLiteStore:
                 db_path, isolation_level=None, check_same_thread=check_same_thread
             )
             self.conn.execute("PRAGMA foreign_keys = ON")
+            self.conn.execute("PRAGMA journal_mode = WAL")
+            self.conn.execute("PRAGMA busy_timeout = 5000")
             self.conn.row_factory = sqlite3.Row
         except sqlite3.Error as e:
             raise SQLiteError(f"Cannot open {db_path}: {e}") from e

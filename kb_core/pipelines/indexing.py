@@ -31,7 +31,19 @@ _EXT_TO_FILETYPE = {
     ".xls": FileType.TEXT,
 }
 
-PARSER_VERSION = "0.2.0"
+PARSER_VERSIONS: dict[str, str] = {
+    "code": "0.2.0",
+    "markdown": "0.2.0",
+    "text": "0.2.0",
+}
+
+
+def _chunker_key_for(file_type: FileType) -> str:
+    if file_type == FileType.CODE:
+        return "code"
+    if file_type == FileType.MARKDOWN:
+        return "markdown"
+    return "text"
 
 
 class IndexingPipeline:
@@ -63,6 +75,7 @@ class IndexingPipeline:
         if loader is None:
             raise KBError(f"No loader for {ext}")
         file_type = _EXT_TO_FILETYPE.get(ext, FileType.TEXT)
+        chunker_key = _chunker_key_for(file_type)
         sha = sha256_of_file(path)
         existing = self.sqlite_store.get_document_by_path(str(path))
 
@@ -70,16 +83,11 @@ class IndexingPipeline:
             existing is not None
             and existing.sha256 == sha
             and existing.status == DocStatus.ACTIVE
-            and existing.parser_version == PARSER_VERSION
+            and existing.parser_version == PARSER_VERSIONS[chunker_key]
         ):
             return existing.doc_id
 
         loaded = loader.load(path)
-        chunker_key = (
-            "code"
-            if file_type == FileType.CODE
-            else ("markdown" if file_type == FileType.MARKDOWN else "text")
-        )
         chunker = self.chunkers[chunker_key]
         raw_chunks = chunker.chunk(loaded)
 
@@ -102,7 +110,7 @@ class IndexingPipeline:
             ingested_at=datetime.now(),
             indexed_at=datetime.now(),
             embedding_version=getattr(self.embedder, "model_name", "unknown"),
-            parser_version=PARSER_VERSION,
+            parser_version=PARSER_VERSIONS[chunker_key],
         )
         for c in raw_chunks:
             c.doc_id = doc_id
