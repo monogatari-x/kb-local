@@ -83,21 +83,19 @@ def _watch_dir_from_row(row: dict[str, Any]) -> WatchDirConfig:
     )
 
 
-@app.command("run")
-def run(
-    type: str = typer.Option("incremental", "--type", help="full_scan | incremental"),
-    config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH", help="配置文件路径"),
-) -> None:
-    """运行索引任务"""
-    settings = _load_settings(config)
-    store = _get_store(settings)
-    job_id = store.create_job(type, trigger="manual")
+def scan_and_index(
+    store: SQLiteStore,
+    pipeline: IndexingPipeline,
+    watch_dirs_cfg: list[WatchDirConfig] | None = None,
+    on_fail: Any = None,
+) -> tuple[int, int]:
+    """遍历 watch_dirs 并索引匹配文件,返回 (processed, failed)。
 
-    watch_dirs_cfg = list(settings.watch_dirs) or [
-        _watch_dir_from_row(d) for d in store.list_watch_dirs()
-    ]
-    pipeline = _build_pipeline(store, settings)
-
+    供 kb jobs run 与 MCP server 的每日兜底增量共用;
+    watch_dirs_cfg 为 None 时从 store 的监控目录读取。
+    """
+    if watch_dirs_cfg is None:
+        watch_dirs_cfg = [_watch_dir_from_row(d) for d in store.list_watch_dirs()]
     processed = 0
     failed = 0
     for wd in watch_dirs_cfg:
@@ -106,7 +104,7 @@ def run(
             continue
         strategy = ProjectStrategy(wd.project_strategy)
         allowed_exts = {e.lower().lstrip(".") for e in wd.file_types}
-        for current_root, _dirs, files in os.walk(root):
+        for current_root, dirs, files in os.walk(root):
             for f in files:
                 full = Path(current_root) / f
                 if allowed_exts and full.suffix.lower().lstrip(".") not in allowed_exts:
@@ -120,10 +118,32 @@ def run(
                     pipeline.index_file(full, root, strategy, wd.project_name)
                     processed += 1
                 except Exception as e:
-                    console.print(f"[red]FAIL[/red] {full}: {e}")
                     failed += 1
+                    if on_fail is not None:
+                        on_fail(full, e)
             if not wd.recursive:
-                break
+                dirs.clear()
+    return processed, failed
+
+
+@app.command("run")
+def run(
+    type: str = typer.Option("incremental", "--type", help="full_scan | incremental"),
+    config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH", help="配置文件路径"),
+) -> None:
+    """运行索引任务"""
+    settings = _load_settings(config)
+    store = _get_store(settings)
+    job_id = store.create_job(type, trigger="manual")
+
+    pipeline = _build_pipeline(store, settings)
+
+    def _report_fail(full: Path, e: Exception) -> None:
+        console.print(f"[red]FAIL[/red] {full}: {e}")
+
+    processed, failed = scan_and_index(
+        store, pipeline, list(settings.watch_dirs) or None, on_fail=_report_fail
+    )
 
     store.update_job(
         job_id,

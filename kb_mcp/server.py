@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import sys
 import traceback
@@ -231,12 +232,70 @@ async def kb_status() -> str:
     return await anyio.to_thread.run_sync(_do_status)
 
 
+async def _daily_incremental_loop(interval_seconds: float = 24 * 3600.0) -> None:
+    """每日兜底增量:watcher 僵死/漏事件时,由常驻服务补扫一遍。
+
+    启动 5 分钟后先跑一次,之后每 24h;无变化时只算文件 sha,秒级完成。
+    """
+    import asyncio
+
+    from kb_cli.commands.jobs import scan_and_index
+
+    await asyncio.sleep(300)
+    while True:
+        try:
+            pipeline = cast(Any, _state.get("pipeline"))
+            store = _get_store()
+            if pipeline is None:
+                pipeline = _build_retrieval()
+                pipeline = cast(Any, _state["pipeline"])
+            processed, failed = await anyio.to_thread.run_sync(
+                functools.partial(scan_and_index, store, pipeline)
+            )
+            sys.stderr.write(
+                f"[kb-local] daily incremental: {processed} processed, {failed} failed\n"
+            )
+            sys.stderr.flush()
+        except Exception as e:
+            sys.stderr.write(f"[kb-local] daily incremental failed: {type(e).__name__}: {e}\n")
+            sys.stderr.flush()
+        await asyncio.sleep(interval_seconds)
+
+
+def _run_http_with_auth() -> None:
+    import asyncio
+
+    import uvicorn
+
+    from kb_mcp.bearer_auth import BearerAuthMiddleware
+
+    mcp.settings.stateless_http = True
+    token = os.environ.get("KB_MCP_TOKEN", "").strip() or None
+    app = BearerAuthMiddleware(app=mcp.streamable_http_app(), token=token)
+
+    async def _serve() -> None:
+        config = uvicorn.Config(
+            app,
+            host=_resolve_host(),
+            port=_resolve_port(),
+            log_level=mcp.settings.log_level.lower(),
+        )
+        server = uvicorn.Server(config)
+        background = asyncio.create_task(_daily_incremental_loop())
+        try:
+            await server.serve()
+        finally:
+            background.cancel()
+
+    asyncio.run(_serve())
+
+
 def main() -> None:
     prewarm()
-    transport = _resolve_transport()
-    if transport == "streamable-http":
-        mcp.settings.stateless_http = True
-    mcp.run(transport=transport)
+    if _resolve_transport() == "streamable-http":
+        _run_http_with_auth()
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

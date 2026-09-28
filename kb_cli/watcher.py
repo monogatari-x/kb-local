@@ -1,8 +1,10 @@
 """文件监听:watchdog 触发 → 去抖 → pipeline.index_file。"""
 
 import json
+import sys
 import threading
 import time
+import traceback
 from pathlib import Path, PurePosixPath
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -71,8 +73,12 @@ class DebouncedIndexHandler(FileSystemEventHandler):
                 project_name=self.project_name,
             )
             self.index_count += 1
-        except Exception:
-            pass
+        except Exception as e:
+            sys.stderr.write(
+                f"[watcher] index failed: {src_path}: {type(e).__name__}: {e}\n"
+                f"{traceback.format_exc(limit=3)}"
+            )
+            sys.stderr.flush()
 
 
 def start_watcher(

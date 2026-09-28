@@ -91,3 +91,13 @@ def test_handler_ignores_unknown_event_types():
     h = _make_handler()
     h.on_any_event(FileDeletedEvent("/tmp/foo.php"))
     h.pipeline.index_file.assert_not_called()
+
+
+def test_handler_logs_index_failure(capsys):
+    h = _make_handler()
+    h.pipeline.index_file.side_effect = RuntimeError("boom")
+    h.on_any_event(FileCreatedEvent("/tmp/foo.php"))
+    h.pipeline.index_file.assert_called_once()
+    err = capsys.readouterr().err
+    assert "foo.php" in err
+    assert "boom" in err
