@@ -100,12 +100,15 @@ async def verify_stdio(query: str | None) -> int:
             return await _check(session, query)
 
 
-async def verify_http(url: str, query: str | None) -> int:
+async def verify_http(url: str, query: str | None, token: str | None) -> int:
     from mcp import ClientSession
     from mcp.client.streamable_http import streamablehttp_client
 
-    print(f"[1/3] 连接 HTTP server: {url}")
-    async with streamablehttp_client(url, httpx_client_factory=_no_proxy_client_factory) as (
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    print(f"[1/3] 连接 HTTP server: {url}{' (bearer)' if token else ''}")
+    async with streamablehttp_client(
+        url, headers=headers, httpx_client_factory=_no_proxy_client_factory
+    ) as (
         read,
         write,
         _get_session_id,
@@ -125,10 +128,14 @@ def main() -> int:
     )
     parser.add_argument("--url", default=DEFAULT_URL, help=f"HTTP 端点,默认 {DEFAULT_URL}")
     parser.add_argument("--query", default=None, help="额外验证一次 kb_search(需模型已加载)")
+    parser.add_argument(
+        "--token", default=None, help="Bearer token(或设 KB_MCP_TOKEN 环境变量)"
+    )
     args = parser.parse_args()
+    token = args.token or os.environ.get("KB_MCP_TOKEN")
 
     if args.transport == "http":
-        rc = asyncio.run(verify_http(args.url, args.query))
+        rc = asyncio.run(verify_http(args.url, args.query, token))
     else:
         rc = asyncio.run(verify_stdio(args.query))
 
