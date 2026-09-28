@@ -1,7 +1,10 @@
 @echo off
-REM kb-local watcher 启动脚本(由任务计划程序调用)
-REM 日志:%USERPROFILE%\.kb\watcher.log
-REM 停用本机实例(切到中心实例时):创建 %USERPROFILE%\.kb\DISABLE_LOCAL_KB 即静默退出
+REM kb-local watcher launcher (called by Task Scheduler)
+REM Log: %USERPROFILE%\.kb\watcher.log
+REM To disable this local watcher (after switching to the central instance),
+REM create file %USERPROFILE%\.kb\DISABLE_LOCAL_KB and this script exits silently.
+REM NOTE: keep this file ASCII-only. cmd.exe parses it with the ANSI codepage;
+REM UTF-8 Chinese comments break the if-block parsing (verified 2026-09-28).
 
 if exist "%USERPROFILE%\.kb\DISABLE_LOCAL_KB" (
     echo [%date% %time%] DISABLE_LOCAL_KB marker present, local watcher disabled >> "%USERPROFILE%\.kb\watcher.log"
@@ -13,7 +16,7 @@ set HF_HUB_OFFLINE=1
 set PYTHONUNBUFFERED=1
 set LOG_DIR=%USERPROFILE%\.kb
 
-REM 清代理:SOCKS 代理会让 qdrant_client 构造 httpx 客户端时 ImportError,管线建不起来
+REM Clear proxies: SOCKS proxy makes qdrant_client raise ImportError on httpx client build.
 set ALL_PROXY=
 set all_proxy=
 set HTTP_PROXY=
@@ -21,16 +24,16 @@ set http_proxy=
 set HTTPS_PROXY=
 set https_proxy=
 
-REM 用脚本自身位置定位项目根:项目曾从 C: 迁到 D:,写死盘符会失效
+REM Locate project root relative to this script (drive letter changed once, never hardcode).
 cd /d "%~dp0.."
 set KB_PROJECT_DIR=%CD%
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-REM 每次启动轮转一份上次日志
+REM Rotate previous log on each start.
 if exist "%LOG_DIR%\watcher.log" move /Y "%LOG_DIR%\watcher.log" "%LOG_DIR%\watcher.prev.log" >nul
 
-REM uv 在用户目录,Task Scheduler 默认不带这个 PATH
+REM uv lives in the user dir; Task Scheduler does not include it in PATH.
 set PATH=%USERPROFILE%\.local\bin;%PATH%
 
 echo [%date% %time%] starting kb watch (dir=%KB_PROJECT_DIR%) >> "%LOG_DIR%\watcher.log"
@@ -38,5 +41,5 @@ uv run kb watch start >> "%LOG_DIR%\watcher.log" 2>&1
 set EXIT_CODE=%errorlevel%
 echo [%date% %time%] watcher exited with code %EXIT_CODE% >> "%LOG_DIR%\watcher.log"
 
-REM 把退出码透传给任务计划程序,否则"失败自动重启"永不触发
+REM Propagate exit code so Task Scheduler failure-restart can trigger.
 exit /b %EXIT_CODE%

@@ -1,8 +1,11 @@
 @echo off
-REM kb-local MCP HTTP server 启动脚本(由任务计划程序调用)
-REM 日志:%USERPROFILE%\.kb\mcp_http.log
-REM 端口 8765,仅监听 127.0.0.1;Claude Code 侧配 type=http 共用这一个常驻进程
-REM 停用本机实例(切到中心实例时):创建 %USERPROFILE%\.kb\DISABLE_LOCAL_KB 即静默退出
+REM kb-local MCP HTTP server launcher (called by Task Scheduler)
+REM Log: %USERPROFILE%\.kb\mcp_http.log
+REM Port 8765, loopback only; shared by all local Claude Code sessions.
+REM To disable this local instance (after switching to the central one),
+REM create file %USERPROFILE%\.kb\DISABLE_LOCAL_KB and this script exits silently.
+REM NOTE: keep this file ASCII-only. cmd.exe parses it with the ANSI codepage;
+REM UTF-8 Chinese comments break the if-block parsing (verified 2026-09-28).
 
 if exist "%USERPROFILE%\.kb\DISABLE_LOCAL_KB" (
     echo [%date% %time%] DISABLE_LOCAL_KB marker present, local instance disabled >> "%USERPROFILE%\.kb\mcp_http.log"
@@ -16,7 +19,7 @@ set HF_HUB_OFFLINE=1
 set PYTHONUNBUFFERED=1
 set LOG_DIR=%USERPROFILE%\.kb
 
-REM 清代理:SOCKS 代理会让 qdrant_client 构造 httpx 客户端时 ImportError,检索管线建不起来
+REM Clear proxies: SOCKS proxy makes qdrant_client raise ImportError on httpx client build.
 set ALL_PROXY=
 set all_proxy=
 set HTTP_PROXY=
@@ -24,19 +27,19 @@ set http_proxy=
 set HTTPS_PROXY=
 set https_proxy=
 
-REM 用脚本自身位置定位项目根:项目曾从 C: 迁到 D:,写死盘符会失效
+REM Locate project root relative to this script (drive letter changed once, never hardcode).
 cd /d "%~dp0.."
 set KB_PROJECT_DIR=%CD%
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-REM 每次启动轮转一份上次日志
+REM Rotate previous log on each start.
 if exist "%LOG_DIR%\mcp_http.log" move /Y "%LOG_DIR%\mcp_http.log" "%LOG_DIR%\mcp_http.prev.log" >nul
 
 echo [%date% %time%] starting kb_mcp (transport=%KB_MCP_TRANSPORT% port=%KB_MCP_PORT%) >> "%LOG_DIR%\mcp_http.log"
 
-REM 等 Qdrant 就绪(最多 180 秒):prewarm 在 Qdrant 未起时会失败,之后首次检索
-REM 只能在工作线程加载模型(有 GIL 死锁历史风险),故宁可在此等待
+REM Wait for Qdrant (max 180s): if prewarm runs before Qdrant is up, first search
+REM would load the model in a worker thread, which has a GIL-deadlock history.
 set WAITED=0
 :wait_qdrant
 curl -s --noproxy "*" -o nul http://127.0.0.1:6333
@@ -53,7 +56,7 @@ goto wait_qdrant
 echo [%date% %time%] Qdrant is ready (waited %WAITED%s) >> "%LOG_DIR%\mcp_http.log"
 
 :serve
-REM 自愈循环:进程挂掉就 5 秒后重起,并重走 Qdrant 等待(挂因可能就是 Qdrant 掉了)
+REM Self-heal loop: restart after crash, and re-wait for Qdrant (crash cause may be Qdrant down).
 "%KB_PROJECT_DIR%\.venv\Scripts\python.exe" -m kb_mcp >> "%LOG_DIR%\mcp_http.log" 2>&1
 set EXIT_CODE=%errorlevel%
 echo [%date% %time%] kb_mcp exited with code %EXIT_CODE%, restarting in 5s >> "%LOG_DIR%\mcp_http.log"
