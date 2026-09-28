@@ -48,6 +48,7 @@ class WatchDirConfig(BaseModel):
     file_types: list[str] = Field(default_factory=list)
     include_patterns: list[str] = Field(default_factory=list)
     exclude_patterns: list[str] = Field(default_factory=list)
+    author: str = ""
 
 
 class SchedulerConfig(BaseModel):

@@ -71,6 +71,7 @@ class IndexingPipeline:
         watch_dir: Path,
         project_strategy: str,
         project_name: str,
+        author: str | None = None,
     ) -> str:
         ext = path.suffix.lower()
         loader = self.registry.get_for_extension(ext)
@@ -104,7 +105,7 @@ class IndexingPipeline:
             source_path=str(path),
             rel_path=rel_path(path, watch_dir),
             project=infer_project(path, watch_dir, ProjectStrategy(project_strategy), project_name),
-            author=self.author,
+            author=author if author is not None else self.author,
             file_type=file_type,
             language=loaded.language,
             sha256=sha,

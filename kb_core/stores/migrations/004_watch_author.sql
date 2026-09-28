@@ -1,0 +1,1 @@
+ALTER TABLE watch_dirs ADD COLUMN author TEXT NOT NULL DEFAULT '';

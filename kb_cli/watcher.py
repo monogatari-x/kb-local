@@ -27,6 +27,7 @@ class DebouncedIndexHandler(FileSystemEventHandler):
         file_types: list[str] | None = None,
         include_patterns: list[str] | None = None,
         debounce_seconds: float = 2.0,
+        author: str = "",
     ) -> None:
         super().__init__()
         self.pipeline = pipeline
@@ -37,6 +38,7 @@ class DebouncedIndexHandler(FileSystemEventHandler):
         self.include_patterns = include_patterns or []
         self.file_types = [e.lower().lstrip(".") for e in (file_types or [])]
         self.debounce_seconds = debounce_seconds
+        self.author = author
         self._last_indexed: dict[Path, float] = {}
         self._lock = threading.Lock()
         self.index_count = 0
@@ -71,6 +73,7 @@ class DebouncedIndexHandler(FileSystemEventHandler):
                 watch_dir=self.watch_dir,
                 project_strategy=ProjectStrategy(self.project_strategy),
                 project_name=self.project_name,
+                author=self.author or None,
             )
             self.index_count += 1
         except Exception as e:
@@ -109,6 +112,7 @@ def start_watcher(
             file_types=ftypes,
             include_patterns=includes,
             debounce_seconds=debounce_seconds,
+            author=str(wd.get("author") or ""),
         )
         observer.schedule(handler, str(path), recursive=bool(wd["recursive"]))
     observer.start()

@@ -39,6 +39,9 @@ def add(
         help="只索引匹配这些 glob 的相对路径(可多次,如 --include docs/* --include CLAUDE.md)",
     ),
     exclude: list[str] = typer.Option([], "--exclude", help="排除模式（可多次）"),
+    author: str = typer.Option(
+        "", "--author", help="该目录文档的作者标识(多人聚合实例按人分 watch 时用;空=用全局配置)"
+    ),
     config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH", help="配置文件路径"),
 ) -> None:
     """添加一个监控目录"""
@@ -52,11 +55,12 @@ def add(
         list(exclude),
         file_types=list(file_type),
         include_patterns=list(include),
+        author=author,
     )
     console.print(
         f"[green]已添加[/green] 监控目录 #{wid}: {path} "
         f"(project={project}, strategy={strategy}, file_types={list(file_type) or 'all'}, "
-        f"include={list(include) or 'all'})"
+        f"include={list(include) or 'all'}, author={author or settings.author or '?'})"
     )
     store.close()
 

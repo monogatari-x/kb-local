@@ -234,11 +234,12 @@ class SQLiteStore:
         exclude_patterns: list[str],
         file_types: list[str] | None = None,
         include_patterns: list[str] | None = None,
+        author: str = "",
     ) -> int:
         cur = self.conn.execute(
             """INSERT INTO watch_dirs(path, project_name, project_strategy, recursive,
-                   file_types, include_patterns, exclude_patterns, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   file_types, include_patterns, exclude_patterns, created_at, author)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 path,
                 project_name,
@@ -248,6 +249,7 @@ class SQLiteStore:
                 json.dumps(include_patterns or []),
                 json.dumps(exclude_patterns),
                 self._iso(datetime.now()),
+                author,
             ),
         )
         watch_id = cur.lastrowid

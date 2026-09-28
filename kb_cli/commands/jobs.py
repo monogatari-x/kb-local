@@ -82,6 +82,7 @@ def _watch_dir_from_row(row: dict[str, Any]) -> WatchDirConfig:
         file_types=ftypes,
         include_patterns=includes,
         exclude_patterns=patterns,
+        author=str(row.get("author") or ""),
     )
 
 
@@ -105,6 +106,7 @@ def scan_and_index(
         if not root.exists():
             continue
         strategy = ProjectStrategy(wd.project_strategy)
+        author_override = wd.author.strip() or None
         allowed_exts = {e.lower().lstrip(".") for e in wd.file_types}
         for current_root, dirs, files in os.walk(root):
             for f in files:
@@ -117,7 +119,7 @@ def scan_and_index(
                 if match_exclude(rp, wd.exclude_patterns):
                     continue
                 try:
-                    pipeline.index_file(full, root, strategy, wd.project_name)
+                    pipeline.index_file(full, root, strategy, wd.project_name, author_override)
                     processed += 1
                 except Exception as e:
                     failed += 1
