@@ -9,15 +9,23 @@ from kb_core.config import load_settings
 from kb_core.stores.sqlite_store import SQLiteStore
 
 INCLUDE = [
-    "CLAUDE.md", "AGENTS.md", "GEMINI.md",
-    ".claude/*", ".claude/**",
-    "docs/*", "docs/**",
-    "openspec/*", "openspec/**",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "GEMINI.md",
+    ".claude/*",
+    ".claude/**",
+    "docs/*",
+    "docs/**",
+    "openspec/*",
+    "openspec/**",
 ]
 EXCLUDE = [
-    "vendor/*", "*/vendor/*",
-    "node_modules/*", "*/node_modules/*",
-    ".git/*", "*/.git/*",
+    "vendor/*",
+    "*/vendor/*",
+    "node_modules/*",
+    "*/node_modules/*",
+    ".git/*",
+    "*/.git/*",
 ]
 FILE_TYPES = ["md"]
 
@@ -43,7 +51,11 @@ def main() -> int:
         path_str = str(d).replace("\\", "/")
         try:
             wid = store.add_watch_dir(
-                path_str, d.name, "fixed", True, EXCLUDE,
+                path_str,
+                d.name,
+                "fixed",
+                True,
+                EXCLUDE,
                 file_types=FILE_TYPES,
                 include_patterns=INCLUDE,
             )

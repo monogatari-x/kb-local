@@ -19,12 +19,14 @@ class TextLoader(BaseLoader):
         for i, line in enumerate(lines, start=1):
             if line.strip() == "":
                 if current:
-                    blocks.append(Block(
-                        text="\n".join(current),
-                        start_line=start_line,
-                        end_line=i - 1,
-                        kind="paragraph",
-                    ))
+                    blocks.append(
+                        Block(
+                            text="\n".join(current),
+                            start_line=start_line,
+                            end_line=i - 1,
+                            kind="paragraph",
+                        )
+                    )
                     current = []
                 start_line = i + 1
             else:
@@ -32,10 +34,12 @@ class TextLoader(BaseLoader):
                     start_line = i
                 current.append(line)
         if current:
-            blocks.append(Block(
-                text="\n".join(current),
-                start_line=start_line,
-                end_line=len(lines),
-                kind="paragraph",
-            ))
+            blocks.append(
+                Block(
+                    text="\n".join(current),
+                    start_line=start_line,
+                    end_line=len(lines),
+                    kind="paragraph",
+                )
+            )
         return LoadedDocument(text=text, language=None, blocks=blocks, meta={})

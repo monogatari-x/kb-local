@@ -27,9 +27,15 @@ def test_kb_error_with_cause():
 
 
 def test_subclass_is_kb_error():
-    for cls in [ConfigError, EmbeddingError, FileTooLargeError,
-                UnsupportedFileTypeError, ParseError, VectorStoreError,
-                ProjectConflictError]:
+    for cls in [
+        ConfigError,
+        EmbeddingError,
+        FileTooLargeError,
+        UnsupportedFileTypeError,
+        ParseError,
+        VectorStoreError,
+        ProjectConflictError,
+    ]:
         assert issubclass(cls, KBError)
 
 

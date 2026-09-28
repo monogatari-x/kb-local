@@ -29,11 +29,13 @@ def add(
     strategy: str = typer.Option("fixed", "--strategy", help="fixed | first_subdir"),
     recursive: bool = typer.Option(True, "--recursive/--no-recursive"),
     file_type: list[str] = typer.Option(
-        [], "--file-type",
+        [],
+        "--file-type",
         help="只索引这些扩展名（可多次，如 --file-type md）。留空表示不限制",
     ),
     include: list[str] = typer.Option(
-        [], "--include",
+        [],
+        "--include",
         help="只索引匹配这些 glob 的相对路径(可多次,如 --include docs/* --include CLAUDE.md)",
     ),
     exclude: list[str] = typer.Option([], "--exclude", help="排除模式（可多次）"),
@@ -43,7 +45,11 @@ def add(
     settings = _load_settings(config)
     store = _get_store(settings)
     wid = store.add_watch_dir(
-        path, project, strategy, recursive, list(exclude),
+        path,
+        project,
+        strategy,
+        recursive,
+        list(exclude),
         file_types=list(file_type),
         include_patterns=list(include),
     )

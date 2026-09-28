@@ -28,9 +28,7 @@ class QdrantStore:
             self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config={
-                    "dense": qm.VectorParams(
-                        size=self.vector_size, distance=qm.Distance.COSINE
-                    )
+                    "dense": qm.VectorParams(size=self.vector_size, distance=qm.Distance.COSINE)
                 },
                 sparse_vectors_config={
                     "sparse": qm.SparseVectorParams(index=qm.SparseIndexParams())
@@ -51,9 +49,7 @@ class QdrantStore:
         sparse_vectors: list[dict[str, Any]],
     ) -> None:
         points = []
-        for c, dense, sparse in zip(
-            chunks, dense_vectors, sparse_vectors, strict=True
-        ):
+        for c, dense, sparse in zip(chunks, dense_vectors, sparse_vectors, strict=True):
             points.append(
                 qm.PointStruct(
                     id=str(uuid.uuid5(_QDRANT_NS, c.chunk_id)),
@@ -81,9 +77,7 @@ class QdrantStore:
                 )
             )
         try:
-            self.client.upsert(
-                collection_name=self.collection, points=points, wait=True
-            )
+            self.client.upsert(collection_name=self.collection, points=points, wait=True)
         except Exception as e:
             raise VectorStoreError(f"upsert failed: {e}") from e
 
@@ -93,11 +87,7 @@ class QdrantStore:
                 collection_name=self.collection,
                 points_selector=qm.FilterSelector(
                     filter=qm.Filter(
-                        must=[
-                            qm.FieldCondition(
-                                key="doc_id", match=qm.MatchValue(value=doc_id)
-                            )
-                        ]
+                        must=[qm.FieldCondition(key="doc_id", match=qm.MatchValue(value=doc_id))]
                     )
                 ),
                 wait=True,
@@ -118,9 +108,7 @@ class QdrantStore:
                 collection_name=self.collection,
                 prefetch=[
                     qm.Prefetch(
-                        query=qm.SparseVector(
-                            indices=sparse["indices"], values=sparse["values"]
-                        ),
+                        query=qm.SparseVector(indices=sparse["indices"], values=sparse["values"]),
                         using="sparse",
                         limit=limit * 3,
                     ),

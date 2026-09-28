@@ -39,9 +39,7 @@ def test_reader_not_blocked_by_writer(tmp_path: Path):
 def test_concurrent_write_with_busy_timeout(tmp_path: Path):
     store = SQLiteStore(tmp_path / "t.db")
     store.init_schema()
-    store.conn.execute(
-        "CREATE TABLE IF NOT EXISTS counter (id INTEGER PRIMARY KEY, n INTEGER)"
-    )
+    store.conn.execute("CREATE TABLE IF NOT EXISTS counter (id INTEGER PRIMARY KEY, n INTEGER)")
     store.conn.execute("INSERT INTO counter VALUES (1, 0)")
 
     def bump() -> None:

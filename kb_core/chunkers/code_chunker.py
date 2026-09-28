@@ -18,10 +18,15 @@ class CodeChunker(BaseChunker):
         out: list[Chunk] = []
         ordinal = 0
         for block in loaded.blocks:
-            chunk_type = (ChunkType.CODE_FUNCTION if block.kind == "code_function"
-                          else ChunkType.CODE_CLASS if block.kind == "code_class"
-                          else ChunkType.CODE_STATEMENT if block.kind == "code_statement"
-                          else None)
+            chunk_type = (
+                ChunkType.CODE_FUNCTION
+                if block.kind == "code_function"
+                else ChunkType.CODE_CLASS
+                if block.kind == "code_class"
+                else ChunkType.CODE_STATEMENT
+                if block.kind == "code_statement"
+                else None
+            )
             if chunk_type is None:
                 continue
             if count_tokens(block.text) <= self.max_tokens:
@@ -29,9 +34,16 @@ class CodeChunker(BaseChunker):
                 ordinal += 1
             else:
                 sub_loaded = LoadedDocument(
-                    text=block.text, language=loaded.language,
-                    blocks=[Block(text=block.text, start_line=block.start_line,
-                                  end_line=block.end_line, kind="paragraph")],
+                    text=block.text,
+                    language=loaded.language,
+                    blocks=[
+                        Block(
+                            text=block.text,
+                            start_line=block.start_line,
+                            end_line=block.end_line,
+                            kind="paragraph",
+                        )
+                    ],
                     meta={},
                 )
                 for c in self._recursive.chunk(sub_loaded):
@@ -43,8 +55,9 @@ class CodeChunker(BaseChunker):
                     ordinal += 1
         return out
 
-    def _make_chunk(self, block: Block, full_text: str, ordinal: int,
-                    chunk_type: ChunkType) -> Chunk:
+    def _make_chunk(
+        self, block: Block, full_text: str, ordinal: int, chunk_type: ChunkType
+    ) -> Chunk:
         text = block.text
         start_char = full_text.find(text)
         return Chunk(

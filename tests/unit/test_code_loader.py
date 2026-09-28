@@ -66,7 +66,7 @@ def test_load_python_captures_if_main_block(py_fixture: Path):
     doc = CodeLoader().load(py_fixture)
     statements = [b for b in doc.blocks if b.kind == "code_statement"]
     joined = "\n".join(b.text for b in statements)
-    assert 'if __name__ ==' in joined
+    assert "if __name__ ==" in joined
     assert "sys.exit(0)" in joined
 
 

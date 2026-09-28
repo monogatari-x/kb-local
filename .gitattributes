@@ -1,0 +1,13 @@
+# 平台敏感的换行策略:Windows 脚本必须 CRLF,Unix 脚本必须 LF。
+# core.autocrlf=true 会把所有文本统一转 CRLF,macOS 检出的 .sh 将带 \r
+# 而 shebang 直接失效——bat 的教训反向适用于 sh。此处显式钉死。
+*.sh text eol=lf
+*.plist text eol=lf
+*.py text eol=lf
+*.bat text eol=crlf
+*.vbs text eol=crlf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

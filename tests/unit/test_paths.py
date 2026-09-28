@@ -28,8 +28,10 @@ def test_first_subdir_when_file_directly_in_watch(tmp_path: Path):
     f = tmp_path / "a.py"
     f.write_text("x")
     p = infer_project(
-        file_path=f, watch_dir=tmp_path,
-        strategy=ProjectStrategy.FIRST_SUBDIR, project_name="root",
+        file_path=f,
+        watch_dir=tmp_path,
+        strategy=ProjectStrategy.FIRST_SUBDIR,
+        project_name="root",
     )
     assert p == "root"
 

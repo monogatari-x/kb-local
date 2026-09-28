@@ -35,11 +35,14 @@ class EmbeddingCache:
                (content_hash, embedding_version, dense_vector,
                 sparse_indices, sparse_values, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (content_hash, self.version,
-             self._encode_dense(dense),
-             json.dumps(sparse.get("indices", [])),
-             json.dumps(sparse.get("values", [])),
-             datetime.now().isoformat()),
+            (
+                content_hash,
+                self.version,
+                self._encode_dense(dense),
+                json.dumps(sparse.get("indices", [])),
+                json.dumps(sparse.get("values", [])),
+                datetime.now().isoformat(),
+            ),
         )
 
     def stats(self) -> dict[str, int]:

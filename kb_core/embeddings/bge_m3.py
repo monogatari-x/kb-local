@@ -32,9 +32,7 @@ class BGE_M3_EMBEDDER:
     def vector_size(self) -> int:
         return 1024
 
-    def embed_texts(
-        self, texts: list[str]
-    ) -> tuple[list[list[float]], list[dict[str, Any]]]:
+    def embed_texts(self, texts: list[str]) -> tuple[list[list[float]], list[dict[str, Any]]]:
         if not texts:
             return [], []
 

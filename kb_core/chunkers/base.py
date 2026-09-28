@@ -6,5 +6,4 @@ from kb_core.models import Chunk
 
 class BaseChunker(ABC):
     @abstractmethod
-    def chunk(self, loaded: LoadedDocument) -> list[Chunk]:
-        ...
+    def chunk(self, loaded: LoadedDocument) -> list[Chunk]: ...

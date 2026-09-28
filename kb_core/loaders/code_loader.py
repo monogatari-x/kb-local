@@ -37,11 +37,16 @@ _EXT_TO_LANG = {
 }
 
 _FUNC_NODE_TYPES = {
-    "function_definition", "function_declaration", "method_definition",
-    "function_item", "method_declaration",
+    "function_definition",
+    "function_declaration",
+    "method_definition",
+    "function_item",
+    "method_declaration",
 }
 _CLASS_NODE_TYPES = {
-    "class_definition", "class_declaration", "class_specifier",
+    "class_definition",
+    "class_declaration",
+    "class_specifier",
 }
 
 
@@ -74,9 +79,7 @@ class CodeLoader(BaseLoader):
         self._walk(tree.root_node, text, blocks, top_level=True)
         return blocks
 
-    def _walk(
-        self, node: Node, text: str, blocks: list[Block], top_level: bool
-    ) -> None:
+    def _walk(self, node: Node, text: str, blocks: list[Block], top_level: bool) -> None:
         for child in node.children:
             if child.type in _FUNC_NODE_TYPES:
                 blocks.append(self._make_block(child, text, kind="code_function"))
@@ -84,7 +87,7 @@ class CodeLoader(BaseLoader):
                 blocks.append(self._make_block(child, text, kind="code_class"))
                 self._walk(child, text, blocks, top_level=False)
             elif top_level:
-                snippet = text.encode("utf-8")[child.start_byte:child.end_byte]
+                snippet = text.encode("utf-8")[child.start_byte : child.end_byte]
                 if snippet.strip():
                     blocks.append(self._make_block(child, text, kind="code_statement"))
             else:
@@ -93,7 +96,7 @@ class CodeLoader(BaseLoader):
     def _make_block(self, node: Node, text: str, kind: str) -> Block:
         symbol = self._extract_symbol_name(node)
         encoded = text.encode("utf-8")
-        lines = encoded[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+        lines = encoded[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
         return Block(
             text=lines,
             start_line=node.start_point[0] + 1,

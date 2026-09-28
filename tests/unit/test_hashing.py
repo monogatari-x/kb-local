@@ -25,5 +25,6 @@ def test_content_hash_matches_sha():
 
 def test_sha256_of_file_missing_raises(tmp_path: Path):
     import pytest
+
     with pytest.raises(FileNotFoundError):
         sha256_of_file(tmp_path / "nope.bin")

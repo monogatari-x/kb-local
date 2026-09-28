@@ -25,21 +25,23 @@ class RecursiveChunker(BaseChunker):
                 tokens = count_tokens(piece)
                 start_char = loaded.text.find(piece)
                 end_char = start_char + len(piece)
-                out.append(Chunk(
-                    chunk_id=str(uuid.uuid4()),
-                    doc_id="",
-                    ordinal=ordinal,
-                    text=piece,
-                    tokens=tokens,
-                    content_hash=content_hash(piece),
-                    start_char=start_char if start_char >= 0 else 0,
-                    end_char=end_char if start_char >= 0 else len(piece),
-                    start_line=line_start,
-                    end_line=line_start + piece.count("\n"),
-                    chunk_type=ChunkType.PARAGRAPH,
-                    quality_score=1.0 if tokens >= 32 else 0.6,
-                    language=loaded.language,
-                ))
+                out.append(
+                    Chunk(
+                        chunk_id=str(uuid.uuid4()),
+                        doc_id="",
+                        ordinal=ordinal,
+                        text=piece,
+                        tokens=tokens,
+                        content_hash=content_hash(piece),
+                        start_char=start_char if start_char >= 0 else 0,
+                        end_char=end_char if start_char >= 0 else len(piece),
+                        start_line=line_start,
+                        end_line=line_start + piece.count("\n"),
+                        chunk_type=ChunkType.PARAGRAPH,
+                        quality_score=1.0 if tokens >= 32 else 0.6,
+                        language=loaded.language,
+                    )
+                )
                 ordinal += 1
         return out
 
@@ -87,7 +89,7 @@ class RecursiveChunker(BaseChunker):
         out: list[tuple[str, int]] = [pieces[0]]
         for i in range(1, len(pieces)):
             prev_text = pieces[i - 1][0]
-            tail = prev_text[-self.overlap * 4:]
+            tail = prev_text[-self.overlap * 4 :]
             merged = tail + pieces[i][0]
             out.append((merged, pieces[i][1]))
         return out

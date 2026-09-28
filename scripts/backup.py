@@ -262,8 +262,7 @@ def main(
     to_push, stale = plan_sync(current, manifest)
 
     console.print(
-        f"[bold]kb-backup[/bold] docs={len(files) - 1} "
-        f"推送={len(to_push)} 远端冗余={len(stale)}"
+        f"[bold]kb-backup[/bold] docs={len(files) - 1} 推送={len(to_push)} 远端冗余={len(stale)}"
     )
     for rel in sorted(current):
         action = "PUSH" if rel in to_push else "skip"

@@ -75,12 +75,23 @@ class SQLiteStore:
                        parser_version=excluded.parser_version, status=excluded.status,
                        error_msg=excluded.error_msg, tags=excluded.tags, meta=excluded.meta""",
                 (
-                    doc.doc_id, doc.source_path, doc.rel_path, doc.project,
-                    doc.file_type.value, doc.language, doc.sha256, doc.size_bytes,
-                    self._iso(doc.mtime), self._iso(doc.ingested_at),
-                    self._iso(doc.indexed_at), doc.embedding_version,
-                    doc.parser_version, doc.status.value, doc.error_msg,
-                    json.dumps(doc.tags), json.dumps(doc.meta),
+                    doc.doc_id,
+                    doc.source_path,
+                    doc.rel_path,
+                    doc.project,
+                    doc.file_type.value,
+                    doc.language,
+                    doc.sha256,
+                    doc.size_bytes,
+                    self._iso(doc.mtime),
+                    self._iso(doc.ingested_at),
+                    self._iso(doc.indexed_at),
+                    doc.embedding_version,
+                    doc.parser_version,
+                    doc.status.value,
+                    doc.error_msg,
+                    json.dumps(doc.tags),
+                    json.dumps(doc.meta),
                 ),
             )
         except sqlite3.Error as e:
@@ -91,23 +102,27 @@ class SQLiteStore:
         ingested_at = self._parse_iso(row["ingested_at"])
         assert mtime is not None and ingested_at is not None
         return Document(
-            doc_id=row["doc_id"], source_path=row["source_path"], rel_path=row["rel_path"],
-            project=row["project"], file_type=FileType(row["file_type"]),
-            language=row["language"], sha256=row["sha256"], size_bytes=row["size_bytes"],
+            doc_id=row["doc_id"],
+            source_path=row["source_path"],
+            rel_path=row["rel_path"],
+            project=row["project"],
+            file_type=FileType(row["file_type"]),
+            language=row["language"],
+            sha256=row["sha256"],
+            size_bytes=row["size_bytes"],
             mtime=mtime,
             ingested_at=ingested_at,
             indexed_at=self._parse_iso(row["indexed_at"]),
             embedding_version=row["embedding_version"],
             parser_version=row["parser_version"],
-            status=DocStatus(row["status"]), error_msg=row["error_msg"],
+            status=DocStatus(row["status"]),
+            error_msg=row["error_msg"],
             tags=json.loads(row["tags"] or "[]"),
             meta=json.loads(row["meta"] or "{}"),
         )
 
     def get_document(self, doc_id: str) -> Document | None:
-        row = self.conn.execute(
-            "SELECT * FROM documents WHERE doc_id = ?", (doc_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM documents WHERE doc_id = ?", (doc_id,)).fetchone()
         return self._row_to_doc(row) if row else None
 
     def get_document_by_path(self, source_path: str) -> Document | None:
@@ -137,30 +152,49 @@ class SQLiteStore:
                        text=excluded.text, tokens=excluded.tokens,
                        content_hash=excluded.content_hash""",
                 (
-                    c.chunk_id, c.doc_id, c.ordinal, c.text, c.text_truncated,
-                    c.tokens, c.content_hash, c.start_char, c.end_char,
-                    c.start_line, c.end_line, c.section_path, c.symbol_path,
-                    c.chunk_type.value, c.quality_score, c.language,
+                    c.chunk_id,
+                    c.doc_id,
+                    c.ordinal,
+                    c.text,
+                    c.text_truncated,
+                    c.tokens,
+                    c.content_hash,
+                    c.start_char,
+                    c.end_char,
+                    c.start_line,
+                    c.end_line,
+                    c.section_path,
+                    c.symbol_path,
+                    c.chunk_type.value,
+                    c.quality_score,
+                    c.language,
                     json.dumps(c.meta),
                 ),
             )
 
     def _row_to_chunk(self, row: sqlite3.Row) -> Chunk:
         return Chunk(
-            chunk_id=row["chunk_id"], doc_id=row["doc_id"], ordinal=row["ordinal"],
-            text=row["text"], text_truncated=row["text_truncated"],
-            tokens=row["tokens"], content_hash=row["content_hash"],
-            start_char=row["start_char"], end_char=row["end_char"],
-            start_line=row["start_line"], end_line=row["end_line"],
-            section_path=row["section_path"], symbol_path=row["symbol_path"],
-            chunk_type=ChunkType(row["chunk_type"]), quality_score=row["quality_score"],
-            language=row["language"], meta=json.loads(row["meta"] or "{}"),
+            chunk_id=row["chunk_id"],
+            doc_id=row["doc_id"],
+            ordinal=row["ordinal"],
+            text=row["text"],
+            text_truncated=row["text_truncated"],
+            tokens=row["tokens"],
+            content_hash=row["content_hash"],
+            start_char=row["start_char"],
+            end_char=row["end_char"],
+            start_line=row["start_line"],
+            end_line=row["end_line"],
+            section_path=row["section_path"],
+            symbol_path=row["symbol_path"],
+            chunk_type=ChunkType(row["chunk_type"]),
+            quality_score=row["quality_score"],
+            language=row["language"],
+            meta=json.loads(row["meta"] or "{}"),
         )
 
     def get_chunk(self, chunk_id: str) -> Chunk | None:
-        row = self.conn.execute(
-            "SELECT * FROM chunks WHERE chunk_id = ?", (chunk_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM chunks WHERE chunk_id = ?", (chunk_id,)).fetchone()
         return self._row_to_chunk(row) if row else None
 
     def get_chunks_by_doc(self, doc_id: str) -> list[Chunk]:
@@ -202,9 +236,16 @@ class SQLiteStore:
             """INSERT INTO watch_dirs(path, project_name, project_strategy, recursive,
                    file_types, include_patterns, exclude_patterns, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (path, project_name, strategy, int(recursive),
-             json.dumps(file_types or []), json.dumps(include_patterns or []),
-             json.dumps(exclude_patterns), self._iso(datetime.now())),
+            (
+                path,
+                project_name,
+                strategy,
+                int(recursive),
+                json.dumps(file_types or []),
+                json.dumps(include_patterns or []),
+                json.dumps(exclude_patterns),
+                self._iso(datetime.now()),
+            ),
         )
         watch_id = cur.lastrowid
         assert watch_id is not None

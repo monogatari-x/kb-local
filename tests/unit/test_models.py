@@ -69,9 +69,16 @@ def test_project_strategy_values():
 def test_search_result_citation_field():
     sr = SearchResult(
         chunk=Chunk(
-            chunk_id="c-1", doc_id="d-1", ordinal=0, text="hi",
-            tokens=1, content_hash="h", start_char=0, end_char=2,
-            chunk_type=ChunkType.PARAGRAPH, quality_score=1.0,
+            chunk_id="c-1",
+            doc_id="d-1",
+            ordinal=0,
+            text="hi",
+            tokens=1,
+            content_hash="h",
+            start_char=0,
+            end_char=2,
+            chunk_type=ChunkType.PARAGRAPH,
+            quality_score=1.0,
         ),
         document=None,  # 允许 None，便于测试
         final_score=0.9,
