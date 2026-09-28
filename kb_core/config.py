@@ -60,6 +60,13 @@ class DatabaseConfig(BaseModel):
     sqlite_path: str = "~/.kb/kb_meta.db"
 
 
+class BackupConfig(BaseModel):
+    server: str = "192.168.0.10"
+    user: str = "caopingtao"
+    key: str = "~/.ssh/id_rsa_2048"
+    remote_root: str = "/data/RAG/bak"
+
+
 class Settings(BaseSettings):
     author: str = ""
     server: ServerConfig = Field(default_factory=ServerConfig)
@@ -69,6 +76,7 @@ class Settings(BaseSettings):
     watch_dirs: list[WatchDirConfig] = Field(default_factory=list)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    backup: BackupConfig = Field(default_factory=BackupConfig)
 
 
 def load_settings(path: Path | None = None) -> Settings:

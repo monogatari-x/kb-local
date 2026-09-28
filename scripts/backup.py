@@ -250,14 +250,18 @@ def _save_manifest(path: Path, manifest: dict[str, FileState]) -> None:
 
 def main(
     config: str = typer.Option(None, "--config", envvar="KB_CONFIG_PATH", help="kb 配置文件"),
-    server: str = typer.Option("192.168.0.10", "--server", help="远程服务器"),
-    user: str = typer.Option("caopingtao", "--user", help="SSH 用户名"),
-    key: str = typer.Option("~/.ssh/id_rsa_2048", "--key", help="SSH 私钥路径"),
-    remote: str = typer.Option("/data/RAG/bak", "--remote", help="远端备份根目录(公用)"),
+    server: str = typer.Option("", "--server", help="远程服务器(默认读 config backup.server)"),
+    user: str = typer.Option("", "--user", help="SSH 用户名(默认读 backup.user)"),
+    key: str = typer.Option("", "--key", help="SSH 私钥路径(默认读 backup.key)"),
+    remote: str = typer.Option("", "--remote", help="远端备份根目录(默认读 backup.remote_root)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只列出计划,不传输"),
     prune_stale: bool = typer.Option(False, "--prune-stale", help="同步删除远端已不存在的文件"),
 ) -> None:
     settings = load_settings(Path(config) if config else None)
+    server = server or settings.backup.server
+    user = user or settings.backup.user
+    key = key or settings.backup.key
+    remote = remote or settings.backup.remote_root
     sqlite_path = Path(settings.database.sqlite_path).expanduser()
     store = SQLiteStore(sqlite_path)
     store.init_schema()
