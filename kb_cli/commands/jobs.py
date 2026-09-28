@@ -62,7 +62,9 @@ def _build_pipeline(store: SQLiteStore, settings: Settings) -> IndexingPipeline:
         "markdown": MarkdownChunker(),
         "text": RecursiveChunker(),
     }
-    return IndexingPipeline(store, qdrant, reg, embedder, chunkers, settings.chunking)
+    return IndexingPipeline(
+        store, qdrant, reg, embedder, chunkers, settings.chunking, author=settings.author
+    )
 
 
 def _watch_dir_from_row(row: dict[str, Any]) -> WatchDirConfig:

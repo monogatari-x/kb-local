@@ -13,6 +13,7 @@ class Document(BaseModel):
     source_path: str
     rel_path: str
     project: str
+    author: str = ""
     file_type: FileType
     language: str | None = None
     sha256: str

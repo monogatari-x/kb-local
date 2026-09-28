@@ -55,6 +55,7 @@ class IndexingPipeline:
         embedder: BGE_M3_EMBEDDER,
         chunkers: dict[str, BaseChunker],
         chunking_config: ChunkingConfig | None = None,
+        author: str = "",
     ) -> None:
         self.sqlite_store = sqlite_store
         self.qdrant_store = qdrant_store
@@ -62,6 +63,7 @@ class IndexingPipeline:
         self.embedder = embedder
         self.chunkers = chunkers
         self.chunking_config = chunking_config or ChunkingConfig()
+        self.author = author
 
     def index_file(
         self,
@@ -102,6 +104,7 @@ class IndexingPipeline:
             source_path=str(path),
             rel_path=rel_path(path, watch_dir),
             project=infer_project(path, watch_dir, ProjectStrategy(project_strategy), project_name),
+            author=self.author,
             file_type=file_type,
             language=loaded.language,
             sha256=sha,

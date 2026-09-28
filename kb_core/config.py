@@ -60,6 +60,7 @@ class DatabaseConfig(BaseModel):
 
 
 class Settings(BaseSettings):
+    author: str = ""
     server: ServerConfig = Field(default_factory=ServerConfig)
     qdrant: QdrantConfig = Field(default_factory=QdrantConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)

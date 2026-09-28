@@ -17,6 +17,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -138,6 +139,23 @@ def _path_arg(path: Path, msys: bool) -> str:
     return _msys(path) if msys else path.as_posix()
 
 
+def _run_with_retry(args: list[str], desc: str, attempts: int = 3, delay_s: float = 3.0) -> None:
+    """ssh 偶发 exit 255(连接抖动)会让整次备份失败;重试扛过瞬时故障。"""
+    for i in range(1, attempts + 1):
+        proc = subprocess.run(args, capture_output=True, text=True)
+        if proc.returncode == 0:
+            return
+        if proc.stdout:
+            console.print(f"[dim]{proc.stdout.strip()[:200]}[/dim]")
+        if i == attempts:
+            console.print(
+                f"[red]FAIL[/red] {desc}: exit {proc.returncode} {proc.stderr.strip()[:200]}"
+            )
+            raise subprocess.CalledProcessError(proc.returncode, args, proc.stdout, proc.stderr)
+        console.print(f"[yellow]retry {i}/{attempts - 1}[/yellow] {desc}: exit {proc.returncode}")
+        time.sleep(delay_s)
+
+
 def _ssh(user: str, server: str, key: Path, command: str) -> None:
     binary, msys = _ssh_bin("ssh")
     args = [
@@ -152,7 +170,7 @@ def _ssh(user: str, server: str, key: Path, command: str) -> None:
         command,
     ]
     console.print(f"[dim]ssh {command}[/dim]")
-    subprocess.run(args, check=True)
+    _run_with_retry(args, f"ssh {command}")
 
 
 def _scp(user: str, server: str, key: Path, local: list[Path], remote_target: str) -> None:
@@ -169,7 +187,7 @@ def _scp(user: str, server: str, key: Path, local: list[Path], remote_target: st
         f"{user}@{server}:{remote_target}",
     ]
     console.print(f"[dim]scp {len(local)} 个文件 → {remote_target}[/dim]")
-    subprocess.run(args, check=True)
+    _run_with_retry(args, f"scp {len(local)} files -> {remote_target}")
 
 
 def _push_files(
@@ -235,7 +253,7 @@ def main(
     server: str = typer.Option("192.168.0.10", "--server", help="远程服务器"),
     user: str = typer.Option("caopingtao", "--user", help="SSH 用户名"),
     key: str = typer.Option("~/.ssh/id_rsa_2048", "--key", help="SSH 私钥路径"),
-    remote: str = typer.Option("/home/caopingtao/RAG/bak", "--remote", help="远端备份根目录"),
+    remote: str = typer.Option("/data/RAG/bak", "--remote", help="远端备份根目录(公用)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="只列出计划,不传输"),
     prune_stale: bool = typer.Option(False, "--prune-stale", help="同步删除远端已不存在的文件"),
 ) -> None:
@@ -278,7 +296,14 @@ def main(
     if not key_path.exists():
         raise typer.BadParameter(f"SSH key not found: {key_path}")
 
-    remote_root = remote.rstrip("/")
+    author = settings.author.strip()
+    if not author:
+        console.print(
+            "[red]未配置 author,拒绝备份。[/red]在 ~/.kb/config.yaml 加 `author: <禅道账号>`"
+            "(备份按人分目录,是工作交接/评价的依据,不能匿名)"
+        )
+        raise typer.Exit(code=1)
+    remote_root = f"{remote.rstrip('/')}/{author}"
     if to_push:
         _push_files(files, to_push, user=user, server=server, key=key_path, remote_root=remote_root)
     if prune_stale and stale:

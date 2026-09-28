@@ -61,13 +61,14 @@ class SQLiteStore:
     def upsert_document(self, doc: Document) -> None:
         try:
             self.conn.execute(
-                """INSERT INTO documents(doc_id, source_path, rel_path, project, file_type,
+                """INSERT INTO documents(doc_id, source_path, rel_path, project, author, file_type,
                        language, sha256, size_bytes, mtime, ingested_at, indexed_at,
                        embedding_version, parser_version, status, error_msg, tags, meta)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(doc_id) DO UPDATE SET
                        source_path=excluded.source_path, rel_path=excluded.rel_path,
-                       project=excluded.project, file_type=excluded.file_type,
+                       project=excluded.project, author=excluded.author,
+                       file_type=excluded.file_type,
                        language=excluded.language, sha256=excluded.sha256,
                        size_bytes=excluded.size_bytes, mtime=excluded.mtime,
                        ingested_at=excluded.ingested_at, indexed_at=excluded.indexed_at,
@@ -79,6 +80,7 @@ class SQLiteStore:
                     doc.source_path,
                     doc.rel_path,
                     doc.project,
+                    doc.author,
                     doc.file_type.value,
                     doc.language,
                     doc.sha256,
@@ -106,6 +108,7 @@ class SQLiteStore:
             source_path=row["source_path"],
             rel_path=row["rel_path"],
             project=row["project"],
+            author=row["author"],
             file_type=FileType(row["file_type"]),
             language=row["language"],
             sha256=row["sha256"],

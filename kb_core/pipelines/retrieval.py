@@ -85,4 +85,5 @@ class RetrievalPipeline:
             return chunk.chunk_id
         lines = f":{chunk.start_line}-{chunk.end_line}" if chunk.start_line else ""
         sym = f" ({chunk.symbol_path})" if chunk.symbol_path else ""
-        return f"{doc.rel_path}{lines}{sym}"
+        author = f"[{doc.author}] " if doc.author else ""
+        return f"{author}{doc.rel_path}{lines}{sym}"
