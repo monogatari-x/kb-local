@@ -1,6 +1,12 @@
 @echo off
 REM kb-local watcher 启动脚本(由任务计划程序调用)
 REM 日志:%USERPROFILE%\.kb\watcher.log
+REM 停用本机实例(切到中心实例时):创建 %USERPROFILE%\.kb\DISABLE_LOCAL_KB 即静默退出
+
+if exist "%USERPROFILE%\.kb\DISABLE_LOCAL_KB" (
+    echo [%date% %time%] DISABLE_LOCAL_KB marker present, local watcher disabled >> "%USERPROFILE%\.kb\watcher.log"
+    exit /b 0
+)
 
 setlocal
 set HF_HUB_OFFLINE=1

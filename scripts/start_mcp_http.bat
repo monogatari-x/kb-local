@@ -2,6 +2,12 @@
 REM kb-local MCP HTTP server 启动脚本(由任务计划程序调用)
 REM 日志:%USERPROFILE%\.kb\mcp_http.log
 REM 端口 8765,仅监听 127.0.0.1;Claude Code 侧配 type=http 共用这一个常驻进程
+REM 停用本机实例(切到中心实例时):创建 %USERPROFILE%\.kb\DISABLE_LOCAL_KB 即静默退出
+
+if exist "%USERPROFILE%\.kb\DISABLE_LOCAL_KB" (
+    echo [%date% %time%] DISABLE_LOCAL_KB marker present, local instance disabled >> "%USERPROFILE%\.kb\mcp_http.log"
+    exit /b 0
+)
 
 setlocal
 set KB_MCP_TRANSPORT=http
