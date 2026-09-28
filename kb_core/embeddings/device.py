@@ -1,6 +1,7 @@
 def cuda_available() -> bool:
     try:
         import torch
+
         return torch.cuda.is_available()
     except Exception:
         return False
@@ -11,10 +12,22 @@ def cuda_free_memory_mb() -> int | None:
         return None
     try:
         import torch
+
         free, _total = torch.cuda.mem_get_info()
         return int(free / 1024 / 1024)
     except Exception:
         return None
+
+
+def mps_available() -> bool:
+    try:
+        import torch
+
+        backends = getattr(torch, "backends", None)
+        mps = getattr(backends, "mps", None)
+        return mps is not None and mps.is_available()
+    except Exception:
+        return False
 
 
 def resolve_device(preference: str = "auto") -> str:
@@ -22,8 +35,12 @@ def resolve_device(preference: str = "auto") -> str:
         return "cpu"
     if preference == "cuda":
         return "cuda" if cuda_available() else "cpu"
+    if preference == "mps":
+        return "mps" if mps_available() else "cpu"
     if cuda_available():
         free = cuda_free_memory_mb()
         if free is None or free >= 1024:
             return "cuda"
+    if mps_available():
+        return "mps"
     return "cpu"

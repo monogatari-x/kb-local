@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- kb-local MCP HTTP 服务 LaunchAgent(macOS 对应 Windows 的启动文件夹自启)。
+     安装: cp 到 ~/Library/LaunchAgents/ 后 `launchctl load ~/Library/LaunchAgents/com.kb-local.mcp-http.plist`
+     注意:尚未在 macOS 实测,首台部署时验证;PATH 需含 uv 的安装路径(默认 ~/.local/bin)。 -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kb-local.mcp-http</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>REPLACE_WITH_REPO_PATH/scripts/mac/start_mcp_http.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/kb-local-mcp-http.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/kb-local-mcp-http.err</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
