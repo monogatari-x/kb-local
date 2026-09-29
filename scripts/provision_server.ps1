@@ -40,7 +40,17 @@ if ("$exists".Trim() -eq "0") {
     Write-Host "[FAIL] server account '$sshUser' does not exist on $Server."
     Write-Host "       ask ops to create it first, then rerun this script."; exit 1
 }
-Write-Host "[1/3] account exists"
+# ...and its shell is usable (service accounts are often /usr/sbin/nologin:
+# pubkey auth succeeds but the login is rejected with
+# "This account is currently not available" - seen in the 2026-09-29 field test)
+$shell = & ssh @sshArgs "getent passwd $sshUser | cut -d: -f7"
+if ("$shell" -match "nologin|/bin/false") {
+    & ssh @sshArgs "sudo usermod -s /bin/bash $sshUser"
+    if ($LASTEXITCODE -ne 0) { Write-Host "[FAIL] account has shell '$shell' and fixing it failed"; exit 1 }
+    Write-Host "[1/3] account exists (shell fixed: nologin -> /bin/bash)"
+} else {
+    Write-Host "[1/3] account exists"
+}
 
 # 2. add to rag group
 & ssh @sshArgs "sudo usermod -aG rag $sshUser"
