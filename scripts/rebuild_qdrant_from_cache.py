@@ -16,10 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from kb_core.models import Chunk
-from kb_core.enums import ChunkType
-from kb_core.stores.qdrant_store import QdrantStore
 from kb_core.config import load_settings
+from kb_core.enums import ChunkType
+from kb_core.models import Chunk
+from kb_core.stores.qdrant_store import QdrantStore
 
 BATCH = 500
 
