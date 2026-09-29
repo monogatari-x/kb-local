@@ -63,8 +63,11 @@ Write-Host "[3/3] pubkey injected (idempotent)"
     "--include '*/docs/*' --exclude '**/node_modules/**' --exclude '**/vendor/**' --author $author")
 if ($LASTEXITCODE -ne 0) { Write-Host "[FAIL] central watch add"; exit 1 }
 
-# 5. restart central service so the new watch dir is monitored in real time
-& ssh @sshArgs "sudo systemctl restart kb-central-mcp"
+# 5. restart BOTH central services: the watcher only reads the watch list at
+#    startup (a newly added author dir is invisible to a running watcher),
+#    and the MCP service's first incremental scan (5 min after start) picks
+#    up files that already sit in the archive.
+& ssh @sshArgs "sudo systemctl restart kb-central-watcher && sudo systemctl restart kb-central-mcp"
 if ($LASTEXITCODE -ne 0) { Write-Host "[FAIL] service restart"; exit 1 }
 
 Write-Host ""
