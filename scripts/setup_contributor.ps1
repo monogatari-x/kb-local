@@ -76,15 +76,15 @@ uv run --python 3.12 kb watch add $ProjectRoot --project glow --strategy first_s
     --exclude "**/.venv/**" --exclude "**/.git/**" --author $Author
 Pop-Location
 
-# 6. hourly backup task (will pop one UAC prompt)
-Write-Host "[6/6] registering hourly backup task (click Yes on the UAC prompt) ..."
-$taskPs1 = Join-Path $env:TEMP "kb_backup_task.ps1"
-$taskCmd = @"
-`$ErrorActionPreference='Stop'
-schtasks /create /tn "kb-local-backup" /tr "$kbDir\scripts\backup_scheduled.bat" /sc hourly /mo 1 /f
-"@
-Set-Content -Encoding ascii -Path $taskPs1 -Value $taskCmd
-Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File',"$taskPs1" -Wait
+# 6. hourly backup task (runs as the current user - NO admin rights needed)
+Write-Host "[6/6] registering hourly backup task ..."
+$proc = Start-Process schtasks -ArgumentList '/create','/tn','kb-local-backup',
+    '/tr',"'$kbDir\scripts\backup_scheduled.bat'",'/sc','hourly','/mo','1','/f' `
+    -NoNewWindow -PassThru -Wait
+if ($proc.ExitCode -ne 0) {
+    Write-Host "[WARN] schtasks exit $($proc.ExitCode) - run manually if this failed:"
+    Write-Host "  schtasks /create /tn kb-local-backup /tr `"$kbDir\scripts\backup_scheduled.bat`" /sc hourly /mo 1 /f"
+}
 
 Write-Host ""
 Write-Host "== done. verify =="
