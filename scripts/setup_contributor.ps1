@@ -50,14 +50,23 @@ backup:
 "@
 Set-Content -Encoding ascii -Path (Join-Path $kbHome "config.yaml") -Value $cfg
 
-# 4. ssh key (generate if missing, print pubkey for ops)
+# 4. ssh key (generate if missing) + ops request file
 $keyPath = Join-Path $env:USERPROFILE ".ssh\id_rsa_2048"
 if (-not (Test-Path $keyPath)) {
     Write-Host "[4/6] generating ssh key ..."
     ssh-keygen -t rsa -b 2048 -f $keyPath -N '""' -q
 }
-Write-Host "[4/6] send this public key to ops (add to $SshUser@192.168.0.10):"
-Get-Content "$keyPath.pub"
+$pubkey = (Get-Content "$keyPath.pub" -Raw).Trim()
+$request = @"
+author=$Author
+ssh_user=$SshUser
+pubkey=$pubkey
+"@
+$reqFile = Join-Path ([Environment]::GetFolderPath("Desktop")) "kb-provision-request.txt"
+Set-Content -Encoding ascii -Path $reqFile -Value $request
+Write-Host "[4/6] request file written: $reqFile"
+Write-Host "     SEND THIS FILE to the kb-local admin (cao). Server-side provisioning"
+Write-Host "     (rag group + pubkey + central watch) is done by the admin in one command."
 
 # 5. watch dir (all <project>/docs/ under ProjectRoot)
 Write-Host "[5/6] configuring watch dir ..."
@@ -79,7 +88,7 @@ Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolic
 
 Write-Host ""
 Write-Host "== done. verify =="
-Write-Host "1. after ops adds your pubkey, test once:"
-Write-Host "   cd $kbDir ; uv run python scripts\backup.py --dry-run"
-Write-Host "2. hourly backup runs automatically; put docs into $ProjectRoot\<project>\docs\"
-Write-Host "3. search access (token from admin): add one MCP config to Claude Code / Codex."
+Write-Host "1. send $reqFile to the admin, wait for the 'provisioned' reply"
+Write-Host "2. then test once:  cd $kbDir ; uv run python scripts\backup.py --dry-run"
+Write-Host "3. hourly backup runs automatically; put docs into $ProjectRoot\<project>\docs\"
+Write-Host "4. search access (token from admin): add one MCP config to Claude Code / Codex."

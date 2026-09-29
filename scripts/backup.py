@@ -20,7 +20,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -63,9 +63,15 @@ def _watch_dir_from_row(row: dict[str, Any]) -> WatchDirConfig:
     )
 
 
-def collect_files(watch_configs: list[WatchDirConfig]) -> list[Path]:
-    """复刻 `kb jobs run` 的文件选择规则,保证"索引了什么就备份什么"。"""
-    seen: dict[str, Path] = {}
+def collect_file_entries(watch_configs: list[WatchDirConfig]) -> dict[str, Path]:
+    """复刻 `kb jobs run` 的文件选择规则,保证"索引了什么就备份什么"。
+
+    返回 {远端相对路径: 本地路径}。远端相对路径取相对 watch root
+    (如 yaf/docs/x.md)——服务器归档结构统一为
+    /data/RAG/bak/<author>/<project>/docs/...,不镜像本机盘符/中间层,
+    这样中心实例的 watch 路径对所有人都一样。
+    """
+    entries: dict[str, Path] = {}
     for wd in watch_configs:
         root = Path(wd.path).expanduser()
         if not root.exists():
@@ -81,18 +87,10 @@ def collect_files(watch_configs: list[WatchDirConfig]) -> list[Path]:
                     continue
                 if match_exclude(rp, wd.exclude_patterns):
                     continue
-                seen[str(full)] = full
+                entries[rp] = full
             if not wd.recursive:
                 break
-    return sorted(seen.values())
-
-
-def remote_rel_for(path: Path) -> str:
-    """去掉盘符,让远端镜像保留本机目录层次以便还原。"""
-    parts = list(path.parts)
-    if path.drive:
-        parts = parts[1:]
-    return PurePosixPath(*parts).as_posix()
+    return entries
 
 
 def snapshot_sqlite(src: Path, dest: Path) -> None:
@@ -273,7 +271,7 @@ def main(
     tmp_dir = sqlite_path.parent / "backup_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    files: dict[str, Path] = {remote_rel_for(p): p for p in collect_files(watch_configs)}
+    files: dict[str, Path] = collect_file_entries(watch_configs)
     snap = tmp_dir / "kb_meta.db"
     snapshot_sqlite(sqlite_path, snap)
     files["kb_meta.db"] = snap

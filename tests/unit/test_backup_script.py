@@ -10,10 +10,13 @@ backup = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(backup)
 
 
-def test_remote_rel_for_windows_path() -> None:
-    assert backup.remote_rel_for(Path("D:/Glow/Projects/yaf/docs/foo.md")) == (
-        "Glow/Projects/yaf/docs/foo.md"
+def test_collect_entries_keys_are_watch_relative(tmp_path: Path) -> None:
+    _write("proj1/docs/a.md", "a", tmp_path)
+    cfg = WatchDirConfig(
+        path=str(tmp_path), project_name="glow", project_strategy="first_subdir"
     )
+    entries = backup.collect_file_entries([cfg])
+    assert list(entries) == ["proj1/docs/a.md"]
 
 
 def _write(rel: str, content: str, tmp_path: Path) -> None:
@@ -38,7 +41,7 @@ def test_collect_files_respects_watch_rules(tmp_path: Path) -> None:
         include_patterns=["*/docs/*", "*/doc/*"],
         exclude_patterns=["**/node_modules/**", "**/activeByKm/doc/**"],
     )
-    got = {p.relative_to(tmp_path).as_posix() for p in backup.collect_files([cfg])}
+    got = set(backup.collect_file_entries([cfg]))
     assert got == {
         "proj1/docs/a.md",
         "proj1/docs/sub/b.md",
